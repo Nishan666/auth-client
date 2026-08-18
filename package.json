@@ -41,6 +41,10 @@
   "engines": {
     "node": ">=18"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "bin": {
     "auth-client": "./dist/bin/auth-client.mjs"
   },
@@ -64,6 +68,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sonal-7edge/auth-client.git"
+    "url": "git+https://github.com/Nishan666/auth-client.git"
   }
 }

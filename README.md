@@ -30,7 +30,7 @@ The root entry pulls in React, so a Node script or non-React host should import
 ## Install
 
 ```bash
-npm install github:sonal-7edge/auth-client
+npm install github:Nishan666/auth-client
 ```
 
 That is it — **no second command**. A postinstall hook scaffolds into your
@@ -241,17 +241,30 @@ TOTP is not implemented — sign-in/sign-up complete via email/phone OTP only.
 
 ```bash
 npm install
-npm run build                      # vite (4 entries, esm+cjs) + tailwind
+npm run build          # vite (4 entries, esm+cjs) + tailwind + templates + bin
 npm run lint
-node scripts/verify-package.mjs    # 28 assertions against dist/, not src/
+npm run verify         # 28 assertions against dist/, not src/
 ```
+
+### Releasing
+
+This repo is the source. Consumers install from a separate, generated
+**distribution repo** containing only `package.json`, `dist/` and `README.md`:
+
+```bash
+npm run build
+npm run build:dist-repo        # assembles it; commits and pushes nothing
+```
+
+Then review, commit and push in that repo. `npm run set-repo -- <owner>/<repo>`
+retargets the GitHub owner across package.json and the docs.
 
 ### Quick start in a fresh app
 
 ```bash
 npm create vite@latest my-app -- --template react
 cd my-app && npm install
-npm install github:sonal-7edge/auth-client   # scaffolds src/auth/ + .env
+npm install github:Nishan666/auth-client   # scaffolds src/auth/ + .env
 npm run dev
 ```
 
