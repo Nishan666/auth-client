@@ -1,0 +1,69 @@
+{
+  "name": "@7edge/auth-client",
+  "version": "0.2.0",
+  "description": "Plug-and-play frontend authentication library — headless core methods, React hooks, and prebuilt UI screens, all from one entry point.",
+  "keywords": [
+    "authentication",
+    "auth",
+    "react",
+    "jwt",
+    "otp",
+    "refresh-token"
+  ],
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./core": {
+      "import": "./dist/core/index.js",
+      "require": "./dist/core/index.cjs"
+    },
+    "./react": {
+      "import": "./dist/react/index.js",
+      "require": "./dist/react/index.cjs"
+    },
+    "./ui": {
+      "import": "./dist/ui/index.js",
+      "require": "./dist/ui/index.cjs"
+    },
+    "./style.css": "./dist/style.css",
+    "./ui/style.css": "./dist/style.css",
+    "./package.json": "./package.json"
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "auth-client": "./dist/bin/auth-client.mjs"
+  },
+  "scripts": {
+    "postinstall": "node dist/bin/postinstall.mjs"
+  },
+  "dependencies": {
+    "axios": "^1.7.0"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sonal-7edge/auth-client.git"
+  }
+}

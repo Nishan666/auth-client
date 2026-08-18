@@ -1,0 +1,1 @@
+Object.defineProperty(exports,Symbol.toStringTag,{value:`Module`});const e=require("../useAuth-CbEFawjn.cjs");exports.AuthContext=e.n,exports.AuthProvider=e.r,exports.useAuth=e.t;
