@@ -459,14 +459,7 @@ function T(e = {}) {
 			default: break;
 		}
 	});
-	function M() {
-		let e = f.getUser();
-		return {
-			identifier: e?.email ?? e?.phone ?? null,
-			user: e
-		};
-	}
-	function N(e) {
+	function M(e) {
 		let { user: t, tokens: n, ...r } = e, i = f.saveTokens(n ?? r);
 		return t && f.saveUser(t), C({
 			isAuthenticated: !!i?.id_token,
@@ -474,40 +467,40 @@ function T(e = {}) {
 			..._()
 		}), i;
 	}
-	function P(e) {
+	function N(e) {
 		return k(() => A.signUp(e));
 	}
-	function F(e) {
+	function P(e) {
 		return k(async () => {
 			let t = await A.signIn(e);
-			return t.error || (N(t.data), p.post(s.LOGIN)), t;
+			return t.error || (M(t.data), p.post(s.LOGIN)), t;
 		});
 	}
-	function I(e) {
+	function F(e) {
 		return k(() => A.verifyOtp(e));
 	}
-	function L(e) {
+	function I(e) {
 		return k(() => A.resendOtp(e));
 	}
-	function R(e) {
+	function L(e) {
 		return k(() => A.forgotPassword(e));
 	}
-	function z(e) {
+	function R(e) {
 		return k(() => A.verifyResetOtp(e));
 	}
-	function B(e) {
+	function z(e) {
 		return k(() => A.resetPassword(e));
 	}
-	function V(e) {
-		return k(() => A.changePassword(e, M()));
+	function B(e) {
+		return k(() => A.changePassword(e));
 	}
-	function H(e) {
+	function V(e) {
 		return k(async () => {
-			let t = await A.deleteAccount(e, M());
+			let t = await A.deleteAccount(e);
 			return t.error || (D(), p.post(s.LOGOUT)), t;
 		});
 	}
-	function U() {
+	function H() {
 		return k(async () => {
 			try {
 				return {
@@ -526,46 +519,46 @@ function T(e = {}) {
 			}
 		});
 	}
-	function W() {
+	function U() {
 		return k(async () => {
 			let e = await A.signOut({});
 			return D(), p.post(s.LOGOUT), e;
 		});
 	}
-	function G() {
+	function W() {
 		p.close();
 	}
-	function K() {
+	function G() {
 		p.open();
 	}
-	function q() {
+	function K() {
 		p.destroy(), m.clear();
 	}
 	return {
 		getState: b,
 		subscribe: T,
-		signUp: P,
-		signIn: F,
-		login: F,
-		verifyOtp: I,
-		resendOtp: L,
-		forgotPassword: R,
-		verifyResetOtp: z,
-		resetPassword: B,
-		changePassword: V,
-		deleteAccount: H,
-		signOut: W,
-		logout: W,
-		refreshToken: U,
+		signUp: N,
+		signIn: P,
+		login: P,
+		verifyOtp: F,
+		resendOtp: I,
+		forgotPassword: L,
+		verifyResetOtp: R,
+		resetPassword: z,
+		changePassword: B,
+		deleteAccount: V,
+		signOut: U,
+		logout: U,
+		refreshToken: H,
 		getTokens: () => f.getTokens(),
 		getIdToken: () => f.getIdToken(),
 		getAccessToken: () => f.getAccessToken(),
 		getRefreshToken: () => f.getRefreshToken(),
 		getValidToken: () => j.getValidToken(),
 		expiresIn: () => j.expiresIn(),
-		connect: K,
-		disconnect: G,
-		destroy: q,
+		connect: G,
+		disconnect: W,
+		destroy: K,
 		tokenStore: f,
 		__backend: A
 	};
