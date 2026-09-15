@@ -121,9 +121,9 @@ ${c.bold('Next steps')}
        ${c.dim('  {isAuthenticated ? <App /> : <AuthFlow />}')}
        ${c.dim('</AuthProvider>')}
 
-  3. Set ${c.bold(ENV_KEY)} in .env to the real API when it is ready, and
-     set ${c.bold('VITE_AUTH_USE_MOCK=false')}. Until then the mock backend runs
-     with no network: ${c.bold('jane@example.com')} / ${c.bold('Password123!')}, OTP ${c.bold('123456')}.
+  3. Point ${c.bold(ENV_KEY)} in .env at your authentication API. It is
+     required — there is no offline fallback, and Vite only reads .env at
+     startup, so restart the dev server after changing it.
 
   The screens in ${c.bold(dir)} are yours — edit them directly.
 `

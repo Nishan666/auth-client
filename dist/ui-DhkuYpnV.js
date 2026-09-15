@@ -1,5 +1,5 @@
-import { S as e, b as t } from "./createAuthClient-xU2QWm_B.js";
-import { t as n } from "./useAuth-Bxdja9ts.js";
+import { x as e, y as t } from "./createAuthClient-Bzbh90R1.js";
+import { t as n } from "./useAuth-DLg-2p9P.js";
 import { useCallback as r, useEffect as i, useId as a, useRef as o, useState as s } from "react";
 import { Fragment as c, jsx as l, jsxs as u } from "react/jsx-runtime";
 //#region src/ui/components/AuthCard/index.jsx
@@ -320,43 +320,38 @@ function N(e, t) {
 }
 //#endregion
 //#region src/ui/screens/SignIn.jsx
-function P({ setFlow: r }) {
-	let { signIn: i, isLoading: a, error: o } = n(), [f, p] = s(t.EMAIL), [m, g] = s({
+function P({ setFlow: e, flow: r, onAuthenticated: i }) {
+	let { signIn: a, isLoading: o, error: f } = n(), [p, m] = s(t.EMAIL), [g, _] = s({
 		identifier: "",
 		password: ""
-	}), [_, v] = s({});
-	function y() {
-		let e = {}, t = j(m.identifier, f);
-		return t && (e.identifier = t), m.password || (e.password = "Password is required"), e;
+	}), [v, y] = s({});
+	function b() {
+		let e = {}, t = j(g.identifier, p);
+		return t && (e.identifier = t), g.password || (e.password = "Password is required"), e;
 	}
-	async function b(n) {
-		n.preventDefault();
-		let a = y();
-		if (Object.keys(a).length) {
-			v(a);
+	async function S(e) {
+		e.preventDefault();
+		let n = b();
+		if (Object.keys(n).length) {
+			y(n);
 			return;
 		}
-		v({});
-		let o = f === t.EMAIL;
-		(await i({
-			[o ? "email" : "phone"]: m.identifier,
-			password: m.password
-		})).error || r({
-			pendingIdentifier: m.identifier,
-			identifierType: f,
-			otpPurpose: e.AUTH,
-			screen: D.OTP
+		y({});
+		let r = p === t.EMAIL, o = await a({
+			[r ? "email" : "phone"]: g.identifier.trim(),
+			password: g.password
 		});
+		o.error || i?.(o.data);
 	}
-	let S = (e) => (t) => g((n) => ({
+	let C = (e) => (t) => _((n) => ({
 		...n,
 		[e]: t.target.value
 	}));
-	function C(e) {
-		p(e), g((e) => ({
+	function T(e) {
+		m(e), _((e) => ({
 			...e,
 			identifier: ""
-		})), v({});
+		})), y({});
 	}
 	return /* @__PURE__ */ l(d, {
 		title: "Sign in",
@@ -366,27 +361,27 @@ function P({ setFlow: r }) {
 			" ",
 			/* @__PURE__ */ l("button", {
 				className: "font-medium text-ac-fg hover:underline underline-offset-4",
-				onClick: () => r({ screen: D.SIGN_UP }),
+				onClick: () => e({ screen: D.SIGN_UP }),
 				children: "Create one"
 			})
 		] }),
 		children: /* @__PURE__ */ u("form", {
-			onSubmit: b,
+			onSubmit: S,
 			noValidate: !0,
 			children: [
 				/* @__PURE__ */ l(h, {
-					type: f,
-					value: m.identifier,
-					onChange: S("identifier"),
-					error: _.identifier,
-					onTypeChange: C
+					type: p,
+					value: g.identifier,
+					onChange: C("identifier"),
+					error: v.identifier,
+					onTypeChange: T
 				}),
 				/* @__PURE__ */ l(x, {
 					label: "Password",
 					placeholder: "Enter your password",
-					value: m.password,
-					onChange: S("password"),
-					error: _.password,
+					value: g.password,
+					onChange: C("password"),
+					error: v.password,
 					autoComplete: "current-password"
 				}),
 				/* @__PURE__ */ l("div", {
@@ -394,18 +389,22 @@ function P({ setFlow: r }) {
 					children: /* @__PURE__ */ l("button", {
 						type: "button",
 						className: "text-xs text-ac-muted hover:text-ac-fg hover:underline underline-offset-4",
-						onClick: () => r({ screen: D.FORGOT_PASSWORD }),
+						onClick: () => e({ screen: D.FORGOT_PASSWORD }),
 						children: "Forgot password?"
 					})
 				}),
+				r?.notice && /* @__PURE__ */ l(E, {
+					tone: "success",
+					children: r.notice
+				}),
 				/* @__PURE__ */ l(E, {
 					tone: "error",
-					children: o
+					children: f
 				}),
 				/* @__PURE__ */ l(w, {
 					type: "submit",
 					text: "Sign in",
-					loading: a
+					loading: o
 				})
 			]
 		})
@@ -539,60 +538,59 @@ function F({ setFlow: r }) {
 //#endregion
 //#region src/ui/screens/OtpVerify.jsx
 var I = 60;
-function L({ flow: a, setFlow: c, onAuthenticated: f }) {
-	let { verifyOtp: p, verifyResetOtp: m, resendOtp: h, isLoading: g, error: _ } = n(), { pendingIdentifier: v, identifierType: y, otpPurpose: b } = a, [x, S] = s(() => [
+function L({ flow: a, setFlow: c }) {
+	let { verifyOtp: f, verifyResetOtp: p, resendOtp: m, isLoading: h, error: g } = n(), { pendingIdentifier: _, identifierType: v, otpPurpose: y } = a, [b, x] = s(() => [
 		,
 		,
 		,
 		,
 		,
 		,
-	].fill("")), [C, T] = s(I), [O, k] = s(!1), A = o([]), j = o(null), M = r(() => {
-		clearInterval(j.current), j.current = setInterval(() => {
-			T((e) => e <= 1 ? (clearInterval(j.current), 0) : e - 1);
+	].fill("")), [S, C] = s(I), [T, O] = s(!1), k = o([]), A = o(null), j = r(() => {
+		clearInterval(A.current), A.current = setInterval(() => {
+			C((e) => e <= 1 ? (clearInterval(A.current), 0) : e - 1);
 		}, 1e3);
 	}, []);
-	i(() => (A.current[0]?.focus(), M(), () => clearInterval(j.current)), [M]);
-	let N = r(async (t) => {
+	i(() => (k.current[0]?.focus(), j(), () => clearInterval(A.current)), [j]);
+	let M = r(async (t) => {
 		let n = {
-			identifier: v,
+			identifier: _,
 			otp: t
 		};
-		if (b === e.PASSWORD_RESET) {
-			let e = await m(n);
+		if (y === e.PASSWORD_RESET) {
+			let e = await p(n);
 			e.error || c({
 				resetToken: e.data.resetToken,
 				screen: D.RESET_PASSWORD
 			});
 			return;
 		}
-		let r = await p(n);
-		r.error || (c({
+		(await f(n)).error || c({
 			pendingIdentifier: null,
-			screen: D.SIGN_IN
-		}), f?.(r.data));
+			screen: D.SIGN_IN,
+			notice: "Account verified. Sign in to continue."
+		});
 	}, [
-		v,
-		b,
+		_,
+		y,
+		f,
 		p,
-		m,
-		c,
-		f
+		c
 	]);
-	function P(e, t) {
-		let n = t.replace(/\D/g, "").slice(-1), r = [...x];
-		if (r[e] = n, S(r), n) {
+	function N(e, t) {
+		let n = t.replace(/\D/g, "").slice(-1), r = [...b];
+		if (r[e] = n, x(r), n) {
 			if (e < 5) {
-				A.current[e + 1]?.focus();
+				k.current[e + 1]?.focus();
 				return;
 			}
-			r.every(Boolean) && N(r.join(""));
+			r.every(Boolean) && M(r.join(""));
 		}
 	}
-	function F(e, t) {
-		t.key === "Backspace" && !x[e] && e > 0 && A.current[e - 1]?.focus(), t.key === "ArrowLeft" && e > 0 && (t.preventDefault(), A.current[e - 1]?.focus()), t.key === "ArrowRight" && e < 5 && (t.preventDefault(), A.current[e + 1]?.focus());
+	function P(e, t) {
+		t.key === "Backspace" && !b[e] && e > 0 && k.current[e - 1]?.focus(), t.key === "ArrowLeft" && e > 0 && (t.preventDefault(), k.current[e - 1]?.focus()), t.key === "ArrowRight" && e < 5 && (t.preventDefault(), k.current[e + 1]?.focus());
 	}
-	function L(e) {
+	function F(e) {
 		e.preventDefault();
 		let t = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
 		if (!t) return;
@@ -606,39 +604,36 @@ function L({ flow: a, setFlow: c, onAuthenticated: f }) {
 		].fill("");
 		t.split("").forEach((e, t) => {
 			n[t] = e;
-		}), S(n), A.current[Math.min(t.length, 5)]?.focus(), t.length === 6 && N(t);
+		}), x(n), k.current[Math.min(t.length, 5)]?.focus(), t.length === 6 && M(t);
 	}
-	function R(e) {
+	function L(e) {
 		e.preventDefault();
-		let t = x.join("");
-		t.length === 6 && N(t);
+		let t = b.join("");
+		t.length === 6 && M(t);
 	}
-	async function z() {
-		k(!1), !(await h({
-			identifier: v,
-			purpose: b
-		})).error && (S([
+	async function R() {
+		O(!1), !(await m({ identifier: _ })).error && (x([
 			,
 			,
 			,
 			,
 			,
 			,
-		].fill("")), A.current[0]?.focus(), k(!0), T(I), M());
+		].fill("")), k.current[0]?.focus(), O(!0), C(I), j());
 	}
-	let B = x.every(Boolean), V = b === e.PASSWORD_RESET, H = y === t.PHONE ? "phone" : "email", U = V ? D.FORGOT_PASSWORD : D.SIGN_IN;
+	let z = b.every(Boolean), B = y === e.PASSWORD_RESET, V = v === t.PHONE ? "phone" : "email", H = B ? D.FORGOT_PASSWORD : D.SIGN_IN;
 	return /* @__PURE__ */ u(d, {
-		title: V ? "Verify to reset" : "Verify your identity",
-		subtitle: `Enter the 6-digit code sent to ${v || `your ${H}`}`,
+		title: B ? "Verify to reset" : "Confirm your account",
+		subtitle: `Enter the 6-digit code sent to ${_ || `your ${V}`}`,
 		children: [/* @__PURE__ */ u("form", {
-			onSubmit: R,
+			onSubmit: L,
 			children: [
 				/* @__PURE__ */ l("div", {
 					className: "flex gap-2 justify-between mb-5",
-					onPaste: L,
-					children: x.map((e, t) => /* @__PURE__ */ l("input", {
+					onPaste: F,
+					children: b.map((e, t) => /* @__PURE__ */ l("input", {
 						ref: (e) => {
-							A.current[t] = e;
+							k.current[t] = e;
 						},
 						type: "text",
 						inputMode: "numeric",
@@ -646,8 +641,8 @@ function L({ flow: a, setFlow: c, onAuthenticated: f }) {
 						maxLength: 1,
 						value: e,
 						"aria-label": `Digit ${t + 1} of 6`,
-						onChange: (e) => P(t, e.target.value),
-						onKeyDown: (e) => F(t, e),
+						onChange: (e) => N(t, e.target.value),
+						onKeyDown: (e) => P(t, e),
 						onFocus: (e) => e.target.select(),
 						className: `ac-otp-input w-11 h-12 text-center text-base font-medium rounded-ac
                 bg-ac-surface text-ac-fg border outline-none transition-colors
@@ -655,19 +650,19 @@ function L({ flow: a, setFlow: c, onAuthenticated: f }) {
                 ${e ? "border-ac-accent" : "border-ac-border-strong"}`
 					}, t))
 				}),
-				O && /* @__PURE__ */ l(E, {
+				T && /* @__PURE__ */ l(E, {
 					tone: "success",
 					children: "A new code has been sent."
 				}),
 				/* @__PURE__ */ l(E, {
 					tone: "error",
-					children: _
+					children: g
 				}),
 				/* @__PURE__ */ l(w, {
 					type: "submit",
 					text: "Verify",
-					loading: g,
-					disabled: !B
+					loading: h,
+					disabled: !z
 				})
 			]
 		}), /* @__PURE__ */ u("div", {
@@ -675,19 +670,19 @@ function L({ flow: a, setFlow: c, onAuthenticated: f }) {
 			children: [/* @__PURE__ */ l("button", {
 				type: "button",
 				className: "text-ac-muted hover:text-ac-fg hover:underline underline-offset-4",
-				onClick: () => c({ screen: U }),
+				onClick: () => c({ screen: H }),
 				children: "Back"
-			}), C > 0 ? /* @__PURE__ */ u("span", {
+			}), S > 0 ? /* @__PURE__ */ u("span", {
 				className: "text-ac-muted",
 				children: ["Resend in ", /* @__PURE__ */ u("span", {
 					className: "tabular-nums",
-					children: [C, "s"]
+					children: [S, "s"]
 				})]
 			}) : /* @__PURE__ */ l("button", {
 				type: "button",
 				className: "font-medium text-ac-fg hover:underline underline-offset-4 disabled:opacity-50",
-				onClick: z,
-				disabled: g,
+				onClick: R,
+				disabled: h,
 				children: "Resend code"
 			})]
 		})]
@@ -706,11 +701,7 @@ function R({ setFlow: r }) {
 		}
 		v("");
 		let o = f === t.EMAIL;
-		(await i({
-			identifier: m.trim(),
-			identifierType: f,
-			[o ? "email" : "phone"]: m.trim()
-		})).error || r({
+		(await i({ [o ? "email" : "phone"]: m.trim() })).error || r({
 			pendingIdentifier: m.trim(),
 			identifierType: f,
 			otpPurpose: e.PASSWORD_RESET,
@@ -759,34 +750,34 @@ function R({ setFlow: r }) {
 //#endregion
 //#region src/ui/screens/ResetPassword.jsx
 function z({ flow: e, setFlow: t }) {
-	let { resetPassword: r, isLoading: i, error: a } = n(), { pendingIdentifier: o, resetToken: c } = e, [f, p] = s({
+	let { resetPassword: r, isLoading: i, error: a } = n(), { resetToken: o } = e, [c, f] = s({
 		password: "",
 		confirm: ""
-	}), [m, h] = s({});
-	function g() {
-		let e = {}, t = M(f.password, { label: "New password" });
+	}), [p, m] = s({});
+	function h() {
+		let e = {}, t = M(c.password, { label: "New password" });
 		t && (e.password = t);
-		let n = N(f.password, f.confirm);
+		let n = N(c.password, c.confirm);
 		return n && (e.confirm = n), e;
 	}
-	async function _(e) {
+	async function g(e) {
 		e.preventDefault();
-		let n = g();
+		let n = h();
 		if (Object.keys(n).length) {
-			h(n);
+			m(n);
 			return;
 		}
-		h({}), (await r({
-			identifier: o,
-			resetToken: c,
-			newPassword: f.password
+		m({}), (await r({
+			resetToken: o,
+			newPassword: c.password
 		})).error || t({
 			screen: D.SIGN_IN,
 			resetToken: null,
-			pendingIdentifier: null
+			pendingIdentifier: null,
+			notice: "Password updated. Sign in with your new password."
 		});
 	}
-	let v = (e) => (t) => p((n) => ({
+	let _ = (e) => (t) => f((n) => ({
 		...n,
 		[e]: t.target.value
 	}));
@@ -794,25 +785,25 @@ function z({ flow: e, setFlow: t }) {
 		title: "Set a new password",
 		subtitle: "Choose a password you haven't used before",
 		children: /* @__PURE__ */ u("form", {
-			onSubmit: _,
+			onSubmit: g,
 			noValidate: !0,
 			children: [
 				/* @__PURE__ */ l(x, {
 					label: "New password",
 					placeholder: "Enter a new password",
 					hint: "At least 8 characters",
-					value: f.password,
-					onChange: v("password"),
-					error: m.password,
+					value: c.password,
+					onChange: _("password"),
+					error: p.password,
 					autoComplete: "new-password",
 					showStrength: !0
 				}),
 				/* @__PURE__ */ l(x, {
 					label: "Confirm new password",
 					placeholder: "Re-enter your new password",
-					value: f.confirm,
-					onChange: v("confirm"),
-					error: m.confirm,
+					value: c.confirm,
+					onChange: _("confirm"),
+					error: p.confirm,
 					autoComplete: "new-password"
 				}),
 				/* @__PURE__ */ l(E, {
@@ -836,11 +827,13 @@ function B({ initialScreen: n = D.SIGN_IN, onAuthenticated: r }) {
 		pendingIdentifier: null,
 		identifierType: t.EMAIL,
 		otpPurpose: e.AUTH,
-		resetToken: null
+		resetToken: null,
+		notice: null
 	});
 	function o(e) {
 		a((t) => ({
 			...t,
+			notice: null,
 			...e
 		}));
 	}

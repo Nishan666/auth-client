@@ -4,7 +4,7 @@
  * Import auth from one place in your app:
  *   import { AuthProvider, useAuth, AuthFlow } from './auth'
  */
-export { authClient, authConfig, API_BASE_URL, USE_MOCK } from './config'
+export { authClient, authConfig, API_BASE_URL } from './config'
 
 // Your editable screens. Change these, don't fork the library.
 export { default as AuthFlow } from './AuthFlow'

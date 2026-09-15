@@ -11,20 +11,17 @@ import { createAuthClient } from '@7edge/auth-client'
  *  - Create React App:  process.env.REACT_APP_API_BASE_URL
  *  - Next.js:           process.env.NEXT_PUBLIC_API_BASE_URL
  */
-export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
-/**
- * Until the backend is live, leave VITE_AUTH_USE_MOCK=true in .env — the
- * library runs a full in-memory backend with no network. Flip it to false
- * (or remove it) once VITE_API_BASE_URL points at the real API; no other
- * code changes are needed.
- */
-export const USE_MOCK = import.meta.env.VITE_AUTH_USE_MOCK !== 'false'
+if (!API_BASE_URL) {
+  throw new Error(
+    'VITE_API_BASE_URL is not set. Add it to .env and restart the dev server — ' +
+    'Vite only reads .env at startup.'
+  )
+}
 
 export const authConfig = {
   baseURL: API_BASE_URL,
-  useMock: USE_MOCK,
 
   // Renew the token this many seconds before it expires.
   expirySkewSeconds: 30,

@@ -1,4 +1,4 @@
-import { t as e } from "./createAuthClient-xU2QWm_B.js";
+import { t as e } from "./createAuthClient-Bzbh90R1.js";
 import { createContext as t, useContext as n, useEffect as r, useMemo as i, useState as a, useSyncExternalStore as o } from "react";
 import { jsx as s } from "react/jsx-runtime";
 //#region src/ui/theme.js
@@ -75,7 +75,6 @@ function h() {
 		deleteAccount: e.deleteAccount,
 		signOut: e.signOut,
 		logout: e.logout,
-		fetchTokens: e.fetchTokens,
 		refreshToken: e.refreshToken,
 		getTokens: e.getTokens,
 		getIdToken: e.getIdToken,

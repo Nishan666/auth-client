@@ -21,7 +21,7 @@ import {
 
 export default function ResetPassword({ flow, setFlow }) {
   const { resetPassword, isLoading, error } = useAuth()
-  const { pendingIdentifier, resetToken } = flow
+  const { resetToken } = flow
 
   const [form, setForm] = useState({ password: '', confirm: '' })
   const [fieldErrors, setFieldErrors] = useState({})
@@ -46,14 +46,15 @@ export default function ResetPassword({ flow, setFlow }) {
     }
     setFieldErrors({})
 
-    const result = await resetPassword({
-      identifier: pendingIdentifier,
-      resetToken,
-      newPassword: form.password,
-    })
+    const result = await resetPassword({ resetToken, newPassword: form.password })
 
     if (!result.error) {
-      setFlow({ screen: AUTH_SCREENS.SIGN_IN, resetToken: null, pendingIdentifier: null })
+      setFlow({
+        screen: AUTH_SCREENS.SIGN_IN,
+        resetToken: null,
+        pendingIdentifier: null,
+        notice: 'Password updated. Sign in with your new password.',
+      })
     }
   }
 
