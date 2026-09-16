@@ -57,10 +57,14 @@ npm install
 ### 2. Install the auth package
 
 ```bash
-npm install github:Nishan666/auth-client
+npm install github:Nishan666/auth-client --no-progress
 ```
 
-That is the whole setup. The install scaffolds `src/auth/`, then asks about the
+That is the whole setup. The `--no-progress` is worth typing: npm otherwise
+repaints the terminal line ~40 times a second for the whole install, and that
+churn scrolls underneath the questions. Plain
+`npm install github:Nishan666/auth-client` works identically — the questions
+are just sharing the screen with npm's progress bar. The install scaffolds `src/auth/`, then asks about the
 two things that touch files you own — on your actual terminal, as part of the
 install:
 
@@ -124,21 +128,29 @@ That rules out a normal prompt library here. Rendered under npm,
 `@clack/prompts` reads the answer correctly but its message is wiped — only the
 `◆` gutter survives, because the message shares the repainted line.
 
-So there are two renderers, and the environment picks one:
+So there are two renderers, and the *live state of the bar* picks one — not
+merely "am I in an install":
 
-| Where | Renderer |
+| Condition | Renderer |
 |---|---|
-| `npx auth-client setup` | `@clack/prompts` — arrow keys, highlighted default, proper cancel handling |
-| inside `npm install` | a deliberately primitive one: the question is printed and the cursor left on the **next** line, so npm's bar is confined to that throwaway line while the question sits untouched above it. The answer is a single **unechoed** keypress, so nothing of ours is ever on npm's line. Afterwards the cursor steps back up and rewrites the question with the answer. |
+| Bar off — `npx auth-client setup`, or `npm install --no-progress` | `@clack/prompts`: arrow keys, highlighted default, proper cancel handling |
+| Bar live — a plain `npm install` | a deliberately primitive one: the question is printed and the cursor left on the **next** line, so npm's bar is confined to that throwaway line while the question sits untouched above it. The answer is a single **unechoed** keypress, so nothing of ours is ever on npm's line. Afterwards the cursor steps back up and rewrites the question with the answer. |
 
 ```
   Append the auth block to your existing .env? (Y/n)
   Append the auth block to your existing .env? yes
 ```
 
-The progress bar still churns on its own line while you decide — that part is
-npm's, and no package can take it back. A single keypress means `y` and `n` act
-immediately, Enter takes the default, and there is nothing to backspace.
+That is why `--no-progress` is the documented command: with the bar off there
+is nothing to fight, so you get the good prompt during the install itself.
+
+Without the flag, the bar still churns on its own line while you decide — that
+part is npm's and no package can take it back. In that mode a single keypress
+means `y` and `n` act immediately, Enter takes the default, and there is nothing
+to backspace.
+
+Either way, Ctrl+C at a question changes nothing and leaves the remaining
+steps pending for `npx auth-client setup`.
 
 </details>
 
@@ -148,7 +160,7 @@ Every way this can fail degrades to *not asking*, never to a stuck install:
 |---|---|
 | No terminal — CI, Docker build, output piped | no prompt; the outstanding steps go in `src/auth/NEXT-STEPS.txt` |
 | `CI=1` or `AUTH_CLIENT_NO_PROMPT=1` | no prompt |
-| A terminal, but nobody answers | the question times out after 45s, nothing is changed, and it stops asking — so an unattended install is delayed once, not per question |
+| A terminal, but nobody answers | it waits. There is no time limit on an answer — Ctrl+C leaves everything untouched and the steps pending |
 | `--ignore-scripts` | nothing runs at all; use `npx auth-client setup` |
 
 Your `.env` is appended to, never replaced. `main.jsx` and `App.jsx` are copied
@@ -761,11 +773,13 @@ Publishing would need `prepublishOnly` (lint + build) added back, and the
   real TTY; and the question is printed with the cursor parked on the next
   line, with the answer read as an unechoed keypress, so npm's progress bar —
   which repaints the current line ~40 times a second — has a line of its own
-  to scribble on. `npx auth-client setup` uses `@clack/prompts`, which is
-  nicer but gets its message erased under npm, so the renderer is chosen by
-  where it runs. It cannot hang: no terminal or `CI=1` skips the questions, an
-  unanswered one times out after 45s and stops the asking, and a 120s backstop
-  kills the prompt regardless. Nothing is changed without a yes.
+  to scribble on. With the bar off — `--no-progress`, or `npx auth-client
+  setup` — `@clack/prompts` is used instead, which is nicer but gets its
+  message erased under npm; so the renderer follows whether the bar is
+  actually live. It only asks where someone can answer: no terminal, `CI=1` or
+  `AUTH_CLIENT_NO_PROMPT=1` skips the questions. Where it asks, it waits —
+  there is no deadline on an answer, nothing changes without a yes, and Ctrl+C
+  leaves the steps pending.
 - **A closing summary.** `setup` ends with what changed, what to do next, and
   how to undo it — including which `.bak` files are waiting.
 - **A fully ejected `src/auth/`.** The screens' primitives

@@ -11,22 +11,24 @@
  * /dev/tty, which is still the user's real terminal.
  *
  * Crucially the prompt runs in a CHILD process with those fds as its stdio,
- * not in this one. Two reasons:
+ * not in this one: the child's `process.stdin` is then a genuine
+ * tty.ReadStream — isTTY true, raw mode available — so a prompt behaves
+ * normally. Reading /dev/tty through a stream in *this* process does not; it
+ * gets no terminal control and never sees the keystrokes, which go to npm.
  *
- *   · the child's `process.stdin` is then a genuine tty.ReadStream — isTTY
- *     true, raw mode available — so readline behaves normally. Reading
- *     /dev/tty through an fs stream in *this* process does not: readline gets
- *     no terminal control and never sees the keystrokes.
- *   · spawnSync blocks this process, and with it npm's event loop, so npm's
- *     progress bar cannot redraw over the question while it is on screen.
+ * What this does NOT do is quiet npm's progress bar, which repaints the
+ * cursor's line for the whole install. spawnSync does not block it,
+ * --foreground-scripts does not stop it, and process.ppid is the shell npm
+ * spawned rather than npm itself, so there is nothing to signal. bin/prompt.mjs
+ * works around it instead, and picks a renderer accordingly.
  *
  * Rules this hook holds itself to:
  *  - It NEVER fails the install. Any error is swallowed, exit code is 0.
  *  - It never overwrites; existing files are left alone, backups come first.
- *  - It never blocks forever: the prompt is killed after PROMPT_TIMEOUT_MS and
- *    unanswered steps stay pending for `npx auth-client setup` to resume.
- *  - It does nothing when there is no consuming project, and never prompts in
- *    CI or when there is no terminal.
+ *  - It does nothing when there is no consuming project.
+ *  - It only prompts where someone can answer: no controlling terminal, CI, or
+ *    AUTH_CLIENT_NO_PROMPT skips the questions entirely. Where it does ask it
+ *    waits — Ctrl+C leaves the steps pending for `npx auth-client setup`.
  */
 
 import { existsSync, writeFileSync, openSync, closeSync } from 'node:fs'
@@ -38,9 +40,6 @@ import { scaffoldAuth, recordStep, stepStatus, clearNote, TEMPLATES, ENV_KEY, pk
 const HERE = dirname(fileURLToPath(import.meta.url))
 const project = process.env.INIT_CWD
 const tag = `[${pkg.name}]`
-
-/** Generous — someone is reading two questions — but not unbounded. */
-const PROMPT_TIMEOUT_MS = 120_000
 
 function stop(reason) {
   if (process.env.AUTH_CLIENT_DEBUG) console.log(`${tag} skipped: ${reason}`)
@@ -74,7 +73,10 @@ function runSetup() {
     const result = spawnSync(
       process.execPath,
       [join(HERE, 'auth-client.mjs'), 'setup', '--from-install'],
-      { stdio: [fdIn, fdOut, fdOut], timeout: PROMPT_TIMEOUT_MS, env: { ...process.env, INIT_CWD: project } }
+      // No timeout: the prompt waits for an answer for as long as the user
+      // needs, and Ctrl+C is how they leave it. Environments that cannot
+      // answer are excluded above, before we ever get here.
+      { stdio: [fdIn, fdOut, fdOut], env: { ...process.env, INIT_CWD: project } }
     )
     return result.status === 0
   } finally {

@@ -21,16 +21,34 @@
  * question with the answer.
  *
  * Both return `true` / `false` / `null`, where null means *unanswered* — no
- * terminal, Ctrl+C, or nobody typed. Callers treat that differently from a
- * "no": an unanswered step stays pending so the next run resumes at it.
+ * terminal, or the user cancelled. Callers treat that differently from a "no":
+ * an unanswered step stays pending so the next run resumes at it.
+ *
+ * Neither renderer gives up on its own. The prompt waits for as long as it
+ * takes; Ctrl+C is how you leave it.
  */
 
 import { confirm as clackConfirm, isCancel } from '@clack/prompts'
 
-/** How long to wait for an answer before giving up and leaving it pending. */
-export const ANSWER_TIMEOUT_MS = 45_000
+/**
+ * Is npm's progress bar going to repaint the cursor's line while we prompt?
+ *
+ * `--no-progress` (or `progress=false`) sets npm_config_progress in a script's
+ * environment; without it the bar is live. With the bar off there is nothing to
+ * fight, so the good-looking renderer can be used even during an install.
+ */
+export function npmBarActive() {
+  if ('npm_config_progress' in process.env && process.env.npm_config_progress !== 'true') return false
+  return true
+}
 
-/** Once a question goes unanswered nobody is watching. Stop asking. */
+/**
+ * Set when the user cancels (Ctrl+C / Esc). Once they have said "not now",
+ * the remaining questions are not worth asking.
+ *
+ * There is deliberately no time limit on an answer: a prompt that gives up on
+ * its own is worse than one that waits, and Ctrl+C is always available.
+ */
 let abandoned = false
 export const wasAbandoned = () => abandoned
 
@@ -45,19 +63,12 @@ async function keypressConfirm(question, def) {
   stdout.write(`\n  ${question} ${hint}\n`)
 
   const key = await new Promise((resolve) => {
-    let settled = false
-    const finish = (value) => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
+    const onData = (chunk) => {
       stdin.off('data', onData)
       stdin.setRawMode(false)
       stdin.pause()
-      resolve(value)
+      resolve(chunk.toString('utf8'))
     }
-    const onData = (chunk) => finish(chunk.toString('utf8'))
-    const timer = setTimeout(() => finish(null), ANSWER_TIMEOUT_MS)
-
     stdin.setRawMode(true)
     stdin.resume()
     stdin.on('data', onData)
@@ -66,11 +77,6 @@ async function keypressConfirm(question, def) {
   // Reclaim the question's line from whatever npm has drawn over it since.
   const restate = (answer) => stdout.write(`\x1b[1A\r\x1b[2K  ${question} ${answer}\n\r\x1b[2K`)
 
-  if (key === null) {
-    abandoned = true
-    restate(yellow(`no answer in ${ANSWER_TIMEOUT_MS / 1000}s — left for later`))
-    return null
-  }
   if (key === '\x03' || key === '\x04' || key === '\x1b') {
     abandoned = true
     restate(yellow('cancelled'))

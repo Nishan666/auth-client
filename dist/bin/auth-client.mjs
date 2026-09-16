@@ -21,7 +21,7 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs'
-import { confirm as ask } from './prompt.mjs'
+import { confirm as ask, npmBarActive } from './prompt.mjs'
 import { join } from 'node:path'
 import {
   scaffoldAuth, writeEnv, wireApp, undoWiring, isWired,
@@ -160,6 +160,17 @@ function summary(report, { fromInstall = false } = {}) {
   lines.push(`  ${c.cyan('npx auth-client status')} ${c.dim('what is done and what is left')}`)
   lines.push(c.dim('  src/auth/ is yours — editing or deleting it breaks nothing upstream'))
 
+  // npm repaints the cursor's line for the whole install, so its progress bar
+  // scrolls under the question. It cannot be silenced from in here, but the
+  // user can turn it off on their side — worth mentioning once, afterwards,
+  // where there is room to say it.
+  if (fromInstall && npmBarActive()) {
+    lines.push('')
+    lines.push(c.dim('  That scrolling line under the questions is npm’s progress bar,'))
+    lines.push(c.dim('  not part of this. Silence it and the prompts render properly:'))
+    lines.push(`  ${c.cyan('npm install github:Nishan666/auth-client --no-progress')}`)
+  }
+
   console.log('')
   box(
     `${c.bold(pkg.name)} ${c.dim(`v${pkg.version}`)}  ${left.length ? c.yellow('partly set up') : c.green('ready')}`,
@@ -171,10 +182,12 @@ function summary(report, { fromInstall = false } = {}) {
 // ── commands ───────────────────────────────────────────────────────────────
 async function setup() {
   const fromInstall = has('--from-install')
-  // Inside `npm install` the progress bar owns the cursor's line, so the plain
-  // renderer is the only one whose question survives. See bin/prompt.mjs.
+  // The nice renderer is used wherever it can survive. It cannot survive npm's
+  // progress bar, which repaints the cursor's line ~40x/sec — so only then does
+  // the plain one take over. See bin/prompt.mjs.
+  const plain = fromInstall && npmBarActive()
   const confirm = (question, opts) =>
-    ask(question, { ...opts, plain: fromInstall, auto: has('--yes') || has('-y') })
+    ask(question, { ...opts, plain, auto: has('--yes') || has('-y') })
   const report = { done: [], skipped: [], backups: [] }
 
   // Where the last run stopped. `--all` re-offers steps that were declined;
