@@ -2,94 +2,94 @@
 /**
  * Runs after `npm install @7edge/auth-client`.
  *
- *   1. scaffolds src/auth/ — mandatory, additive, no question asked
- *   2. hands over to `auth-client setup` for the steps that need consent
+ * It scaffolds `src/auth/` — mandatory, purely additive, the package's own
+ * territory — then says so and points at the one command that finishes the
+ * job. It asks nothing.
  *
- * Step 2 has to work from inside `npm install`, and npm makes that awkward:
- * lifecycle scripts get piped stdio, so `process.stdin` is not a terminal and
- * anything on stdout is hidden. The way through is the controlling terminal,
- * /dev/tty, which is still the user's real terminal.
+ * It does not ask because an install hook cannot do it reliably. Two reasons,
+ * both found the hard way:
  *
- * Crucially the prompt runs in a CHILD process with those fds as its stdio,
- * not in this one: the child's `process.stdin` is then a genuine
- * tty.ReadStream — isTTY true, raw mode available — so a prompt behaves
- * normally. Reading /dev/tty through a stream in *this* process does not; it
- * gets no terminal control and never sees the keystrokes, which go to npm.
+ *   · npm repaints the cursor's line for the whole install, about 40 times a
+ *     second, erasing anything sharing it. That cannot be silenced from in
+ *     here: --foreground-scripts does not stop it, spawnSync does not block
+ *     it, and process.ppid is the shell npm spawned rather than npm itself.
+ *   · the terminal's input buffer is not ours to consume. Shell prompt themes
+ *     issue terminal queries whose replies arrive there as escape sequences,
+ *     and reading one as an answer made the question cancel itself before the
+ *     user had touched the keyboard.
  *
- * What this does NOT do is quiet npm's progress bar, which repaints the
- * cursor's line for the whole install. spawnSync does not block it,
- * --foreground-scripts does not stop it, and process.ppid is the shell npm
- * spawned rather than npm itself, so there is nothing to signal. bin/prompt.mjs
- * works around it instead, and picks a renderer accordingly.
+ * Writing is safe, though, and worth doing: npm hides a lifecycle script's
+ * stdout unless --foreground-scripts is passed, so the notice goes to
+ * /dev/tty, still the user's real terminal. Failing that it goes to stdout,
+ * and either way it is left in the project as src/auth/NEXT-STEPS.txt.
  *
  * Rules this hook holds itself to:
  *  - It NEVER fails the install. Any error is swallowed, exit code is 0.
- *  - It never overwrites; existing files are left alone, backups come first.
- *  - It does nothing when there is no consuming project.
- *  - It only prompts where someone can answer: no controlling terminal, CI, or
- *    AUTH_CLIENT_NO_PROMPT skips the questions entirely. Where it does ask it
- *    waits — Ctrl+C leaves the steps pending for `npx auth-client setup`.
+ *  - It never reads input, so it can never stall an install.
+ *  - It never overwrites; existing files are left alone.
+ *  - It touches nothing outside src/auth/.
  */
 
-import { existsSync, writeFileSync, openSync, closeSync } from 'node:fs'
-import { spawnSync } from 'node:child_process'
-import { dirname, join, resolve, sep } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { existsSync, writeFileSync, writeSync, openSync, closeSync } from 'node:fs'
+import { join, resolve, sep } from 'node:path'
 import { scaffoldAuth, recordStep, stepStatus, clearNote, TEMPLATES, ENV_KEY, pkg } from './scaffold.mjs'
 
-const HERE = dirname(fileURLToPath(import.meta.url))
 const project = process.env.INIT_CWD
 const tag = `[${pkg.name}]`
+
+const c = {
+  dim: (s) => `\x1b[2m${s}\x1b[0m`,
+  bold: (s) => `\x1b[1m${s}\x1b[0m`,
+  green: (s) => `\x1b[32m${s}\x1b[0m`,
+  cyan: (s) => `\x1b[36m${s}\x1b[0m`,
+}
+const width = (line) => line.replace(/\x1b\[[0-9;]*m/g, '').length
 
 function stop(reason) {
   if (process.env.AUTH_CLIENT_DEBUG) console.log(`${tag} skipped: ${reason}`)
   process.exit(0)
 }
 
-/** Environments where prompting is impossible or unwelcome. */
-function promptingDisabled() {
-  if (process.env.AUTH_CLIENT_NO_PROMPT) return 'AUTH_CLIENT_NO_PROMPT is set'
-  if (process.env.CI) return 'CI is set'
-  return null
-}
-
 /**
- * Runs `auth-client setup` against the controlling terminal.
- * @returns {boolean} whether it got to ask anything at all
+ * Writes to the user's terminal, falling back to stdout.
+ *
+ * Ends on a blank line on purpose: npm's progress bar repaints whichever line
+ * the cursor is on, so leaving the cursor below the message keeps the message
+ * itself intact.
  */
-function runSetup() {
-  if (promptingDisabled()) return false
-
-  let fdIn
-  let fdOut
+function announce(text) {
+  let fd
   try {
-    fdIn = openSync('/dev/tty', 'r')
-    fdOut = openSync('/dev/tty', 'w')
+    fd = openSync('/dev/tty', 'w')
   } catch {
-    return false // no controlling terminal: CI, a Docker build, piped output
+    process.stdout.write(text) // no terminal — NEXT-STEPS.txt carries it instead
+    return
   }
-
   try {
-    const result = spawnSync(
-      process.execPath,
-      [join(HERE, 'auth-client.mjs'), 'setup', '--from-install'],
-      // No timeout: the prompt waits for an answer for as long as the user
-      // needs, and Ctrl+C is how they leave it. Environments that cannot
-      // answer are excluded above, before we ever get here.
-      { stdio: [fdIn, fdOut, fdOut], env: { ...process.env, INIT_CWD: project } }
-    )
-    return result.status === 0
+    writeSync(fd, text)
   } finally {
-    closeSync(fdIn)
-    closeSync(fdOut)
+    closeSync(fd)
   }
 }
 
+function box(lines) {
+  const inner = Math.max(...lines.map(width)) + 2
+  const pad = (line) => line + ' '.repeat(inner - width(line))
+  const rule = '─'.repeat(inner + 1)
+  return [
+    '',
+    c.dim(`  ╭${rule}╮`),
+    ...lines.map((line) => `  ${c.dim('│')} ${pad(line)}${c.dim('│')}`),
+    c.dim(`  ╰${rule}╯`),
+    '',
+    '',
+  ].join('\n')
+}
+
 /**
- * npm hides postinstall output, and there may be no terminal to write to, so
- * whatever is left is also recorded in the project as a file. Rewritten every
- * install so it always describes the *current* remaining work, and removed
- * once there is none.
+ * npm hides this hook's stdout and there may be no terminal, so whatever is
+ * outstanding is also recorded in the project. Rewritten every install so it
+ * always describes the current state, and removed once nothing is left.
  */
 function writeNote(status) {
   const pending = ['env', 'wire'].filter((step) => status[step] === 'pending')
@@ -110,7 +110,7 @@ function writeNote(status) {
     '',
     ...pending.map((step) => describe[step]),
     '',
-    'Run this to be walked through what is left:',
+    'One command walks you through what is left:',
     '',
     '    npx auth-client setup',
     '',
@@ -129,30 +129,36 @@ try {
   if (!existsSync(join(project, 'package.json'))) stop('no package.json in INIT_CWD')
   if (!existsSync(TEMPLATES)) stop('build output not found')
 
-  // ── step 1 ───────────────────────────────────────────────────────────────
-  scaffoldAuth({ project })
+  const { created, skipped } = scaffoldAuth({ project })
   recordStep({ project, step: 'auth', status: 'done' })
 
-  const before = stepStatus({ project })
-  const outstanding = ['env', 'wire'].some((step) => before[step] === 'pending')
+  const status = stepStatus({ project })
+  const pending = ['env', 'wire'].filter((step) => status[step] === 'pending')
+  const count = created.length + skipped.length
 
-  // ── steps 2 and 3, on the user's terminal ────────────────────────────────
-  const asked = outstanding ? runSetup() : false
+  announce(box(
+    pending.length
+      ? [
+        `${c.green('✓')} ${c.bold(pkg.name)} ${c.dim(`v${pkg.version}`)} installed`,
+        '',
+        `  ${c.green('✓')} src/auth/ ${c.dim(`— ${count} files: screens, components, validation`)}`,
+        `  ${c.dim('·')} .env, src/main.jsx, src/App.jsx ${c.dim('— not touched')}`,
+        '',
+        `${c.bold('  Next, run:')}`,
+        `    ${c.cyan('npx auth-client setup')}`,
+        c.dim('    asks before it changes .env, src/main.jsx or src/App.jsx'),
+      ]
+      : [
+        `${c.green('✓')} ${c.bold(pkg.name)} ${c.dim(`v${pkg.version}`)} installed`,
+        '',
+        `  ${c.green('✓')} already set up — nothing left to do`,
+        `    ${c.cyan('npx auth-client status')} ${c.dim('shows the current state')}`,
+      ]
+  ))
 
-  if (!asked) {
-    console.log(`\n${tag} scaffolded src/auth/`)
-    if (outstanding) {
-      const why = promptingDisabled() ?? 'no terminal attached'
-      console.log(`${tag} ${why} — run: npx auth-client setup\n`)
-    } else {
-      console.log(`${tag} setup complete\n`)
-    }
-  }
-
-  writeNote(stepStatus({ project }))
+  writeNote(status)
   process.exit(0)
 } catch (error) {
-  console.log(`\n${tag} could not finish automatically (${error.message}).`)
-  console.log(`${tag} run: npx auth-client setup\n`)
+  announce(`\n${tag} could not scaffold automatically (${error.message}).\n${tag} run: npx auth-client setup\n\n`)
   process.exit(0)
 }

@@ -20,8 +20,9 @@
  * changed, so `setup` is the way back in.
  */
 
+import { createInterface } from 'node:readline/promises'
 import { existsSync, readFileSync } from 'node:fs'
-import { confirm as ask, npmBarActive } from './prompt.mjs'
+
 import { join } from 'node:path'
 import {
   scaffoldAuth, writeEnv, wireApp, undoWiring, isWired,
@@ -41,6 +42,52 @@ const flagValue = (flag, fallback) => {
 const ok = (s) => console.log(`  ${c.green('✓')} ${s}`)
 const skip = (s) => console.log(`  ${c.yellow('·')} ${s}`)
 const cmd = (s) => c.cyan(s)
+
+/**
+ * One readline for the whole run, created on first use.
+ *
+ * Not one per question: closing an interface discards what it has buffered, so
+ * a second question would lose input the user typed ahead.
+ *
+ * There is no time limit on an answer, and no raw-mode keypress reading. An
+ * earlier version read single keypresses to survive `npm install`; it also
+ * read the escape sequences that shell prompt themes leave in the terminal's
+ * input buffer, and treated the leading \x1b as Esc — so the question
+ * cancelled itself before the user touched anything. Prompting now only
+ * happens here, where the terminal is ours and readline is the right tool.
+ */
+let readline = null
+const prompt = () => (readline ??= createInterface({ input: process.stdin, output: process.stdout }))
+function closePrompt() {
+  readline?.close()
+  readline = null
+}
+
+/**
+ * Asks a yes/no question.
+ *
+ * @returns {Promise<boolean|null>} `null` means *unanswered* — not a terminal,
+ * or the user hit Ctrl+C. Deliberately not the same as `false`: an unanswered
+ * step stays pending so the next run resumes at it, whereas a "no" is
+ * remembered and not asked again.
+ */
+async function confirm(question, { def = true } = {}) {
+  if (has('--yes') || has('-y')) return true
+  if (!process.stdin.isTTY) {
+    console.log(`  ${c.yellow('·')} not a terminal — skipping "${question}"`)
+    return null
+  }
+  try {
+    const answer = (await prompt().question(`  ${question} ${c.dim(def ? '(Y/n)' : '(y/N)')} `)).trim().toLowerCase()
+    if (!answer) return def
+    return answer === 'y' || answer === 'yes'
+  } catch {
+    // Ctrl+C / Ctrl+D closes stdin mid-question: bail out cleanly rather than
+    // crashing with a Node stack trace, and leave the step unanswered.
+    console.log(`\n  ${c.yellow('·')} cancelled`)
+    return null
+  }
+}
 
 function header() {
   console.log(`\n${c.bold(pkg.name)} ${c.dim(`v${pkg.version}`)}`)
@@ -125,7 +172,7 @@ function box(title, lines) {
  *
  * @param {{ done: string[], skipped: string[], backups: string[] }} report
  */
-function summary(report, { fromInstall = false } = {}) {
+function summary(report) {
   const state = stepStatus({ project: PROJECT })
   const left = ['env', 'wire'].filter((step) => state[step] !== 'done')
 
@@ -164,30 +211,17 @@ function summary(report, { fromInstall = false } = {}) {
   // scrolls under the question. It cannot be silenced from in here, but the
   // user can turn it off on their side — worth mentioning once, afterwards,
   // where there is room to say it.
-  if (fromInstall && npmBarActive()) {
-    lines.push('')
-    lines.push(c.dim('  That scrolling line under the questions is npm’s progress bar,'))
-    lines.push(c.dim('  not part of this. Silence it and the prompts render properly:'))
-    lines.push(`  ${c.cyan('npm install github:Nishan666/auth-client --no-progress')}`)
-  }
 
   console.log('')
   box(
     `${c.bold(pkg.name)} ${c.dim(`v${pkg.version}`)}  ${left.length ? c.yellow('partly set up') : c.green('ready')}`,
     lines
   )
-  console.log(fromInstall ? c.dim('\n  (this ran as part of npm install)\n') : '')
+  console.log('')
 }
 
 // ── commands ───────────────────────────────────────────────────────────────
 async function setup() {
-  const fromInstall = has('--from-install')
-  // The nice renderer is used wherever it can survive. It cannot survive npm's
-  // progress bar, which repaints the cursor's line ~40x/sec — so only then does
-  // the plain one take over. See bin/prompt.mjs.
-  const plain = fromInstall && npmBarActive()
-  const confirm = (question, opts) =>
-    ask(question, { ...opts, plain, auto: has('--yes') || has('-y') })
   const report = { done: [], skipped: [], backups: [] }
 
   // Where the last run stopped. `--all` re-offers steps that were declined;
@@ -197,11 +231,7 @@ async function setup() {
   const wants = (step) => before[step] === 'pending' || (reoffer && before[step] === 'declined')
   const resuming = before.auth === 'done' && (before.env !== 'pending' || before.wire !== 'pending')
 
-  if (fromInstall) {
-    console.log(`\n  ${c.bold(pkg.name)} ${c.dim(`v${pkg.version}`)}`)
-  } else {
-    header()
-  }
+  header()
 
   if (resuming && (wants('env') || wants('wire'))) {
     const left = ['env', 'wire'].filter(wants)
@@ -210,14 +240,12 @@ async function setup() {
 
   const { created, skipped } = stepAuth({ quiet: true })
   recordStep({ project: PROJECT, step: 'auth', status: 'done' })
-  // Running from the install hook, the scaffold happened moments ago in the
-  // parent process — so "already present" would be technically true and
-  // completely misleading. Count what is on disk instead.
-  const scaffolded = created.length || (fromInstall ? created.length + skipped.length : 0)
+  // Normally `npm install` has already scaffolded it, so `created` is empty
+  // and the interesting number is what is on disk.
   report.done.push(
-    scaffolded
-      ? `src/auth/ ${c.dim(`— ${scaffolded} files: screens, components, validation`)}`
-      : `src/auth/ ${c.dim('— already present, left alone')}`
+    created.length
+      ? `src/auth/ ${c.dim(`— ${created.length} files created`)}`
+      : `src/auth/ ${c.dim(`— ${skipped.length} files already in place, left alone`)}`
   )
   console.log('')
 
@@ -275,7 +303,8 @@ async function setup() {
   }
 
   if (clearNote({ project: PROJECT })) report.done.push(`removed NEXT-STEPS.txt ${c.dim('— nothing outstanding')}`)
-  summary(report, { fromInstall })
+  closePrompt()
+  summary(report)
 }
 
 /** Prints what is done, declined or still outstanding. */
