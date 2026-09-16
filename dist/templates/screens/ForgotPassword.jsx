@@ -20,7 +20,7 @@ import {
 } from '@7edge/auth-client'
 
 export default function ForgotPassword({ setFlow }) {
-  const { forgotPassword, isLoading, error } = useAuth()
+  const { forgotPassword, isLoading, error, clearError } = useAuth()
 
   const [identifierType, setIdentifierType] = useState(IDENTIFIER_TYPE.EMAIL)
   const [identifier, setIdentifier] = useState('')
@@ -49,6 +49,7 @@ export default function ForgotPassword({ setFlow }) {
   }
 
   function switchIdentifierType(type) {
+    if (error) clearError()
     setIdentifierType(type)
     setIdentifier('')
     setFieldError('')
@@ -74,7 +75,11 @@ export default function ForgotPassword({ setFlow }) {
         <IdentifierInput
           type={identifierType}
           value={identifier}
-          onChange={(event) => setIdentifier(event.target.value)}
+          onChange={(event) => {
+            if (error) clearError()
+            if (fieldError) setFieldError('')
+            setIdentifier(event.target.value)
+          }}
           error={fieldError}
           onTypeChange={switchIdentifierType}
         />

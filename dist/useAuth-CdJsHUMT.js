@@ -1,4 +1,4 @@
-import { t as e } from "./createAuthClient-B9GXGl3i.js";
+import { t as e } from "./createAuthClient-GpONd1o-.js";
 import { createContext as t, useContext as n, useEffect as r, useMemo as i, useState as a, useSyncExternalStore as o } from "react";
 import { jsx as s } from "react/jsx-runtime";
 //#region src/ui/theme.js
@@ -63,6 +63,7 @@ function h() {
 	if (!e) throw Error("useAuth() must be used within an <AuthProvider>. Wrap your app root in <AuthProvider config={{ ... }}>.");
 	return {
 		...o(e.subscribe, e.getState, e.getState),
+		clearError: e.clearError,
 		signUp: e.signUp,
 		signIn: e.signIn,
 		login: e.login,

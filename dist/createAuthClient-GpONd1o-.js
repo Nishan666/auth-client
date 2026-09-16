@@ -33,33 +33,39 @@ var t = {
 }, l = 30;
 //#endregion
 //#region src/core/httpClient.js
-function u(e = "") {
+function u(e, t) {
+	return [t.CHANGE_PASSWORD, t.DELETE_ACCOUNT].some((t) => e.includes(t));
+}
+function d(e = "") {
 	return !!(e.includes(n.REFRESH) || e.includes("X-Amz-Signature") || e.includes("X-Amz-Algorithm"));
 }
-function d({ baseURL: t, tokenStore: n, tokenManager: r, headers: i }) {
-	let a = e.create({
+function f({ baseURL: t, tokenStore: r, tokenManager: i, headers: a, endpoints: o }) {
+	let s = {
+		...n,
+		...o
+	}, c = e.create({
 		baseURL: t,
-		headers: i
+		headers: a
 	});
-	return a.interceptors.request.use(async (e) => {
-		if (u(e.url ?? "")) return e;
-		let t = await r.getValidToken() ?? n.getIdToken();
+	return c.interceptors.request.use(async (e) => {
+		if (d(e.url ?? "")) return e;
+		let t = await i.getValidToken() ?? r.getIdToken();
 		return t && (e.headers = e.headers ?? {}, e.headers.Authorization = `Bearer ${t}`), e;
-	}), a.interceptors.response.use((e) => e, async (e) => {
-		let t = e.config, n = e.response?.status === 401, i = t?._retry === !0, o = u(t?.url ?? "");
-		if (!t || !n || i || o) return Promise.reject(e);
+	}), c.interceptors.response.use((e) => e, async (e) => {
+		let t = e.config, n = e.response?.status === 401, r = t?._retry === !0, a = d(t?.url ?? "");
+		if (!t || !n || r || a || u(t.url ?? "", s)) return Promise.reject(e);
 		t._retry = !0;
 		try {
-			let e = await r.refresh(!0);
-			return t.headers = t.headers ?? {}, t.headers.Authorization = `Bearer ${e}`, a(t);
+			let e = await i.refresh(!0);
+			return t.headers = t.headers ?? {}, t.headers.Authorization = `Bearer ${e}`, c(t);
 		} catch {
 			return Promise.reject(e);
 		}
-	}), a;
+	}), c;
 }
 //#endregion
 //#region src/core/storage.js
-function f() {
+function p() {
 	let e = /* @__PURE__ */ new Map();
 	return {
 		getItem: (t) => e.has(t) ? e.get(t) : null,
@@ -67,17 +73,17 @@ function f() {
 		removeItem: (t) => e.delete(t)
 	};
 }
-function p(e) {
+function m(e) {
 	if (e) return e;
 	if (typeof window < "u" && window.localStorage) try {
 		let e = "__auth_client_probe__";
 		return window.localStorage.setItem(e, "1"), window.localStorage.removeItem(e), window.localStorage;
 	} catch {
-		return f();
+		return p();
 	}
-	return f();
+	return p();
 }
-function m(e) {
+function h(e) {
 	if (!e || typeof e != "object") return null;
 	let { id_token: t, idToken: n, access_token: r, accessToken: i, refresh_token: a, refreshToken: o, data: s, ...c } = e.data && typeof e.data == "object" ? {
 		...e.data,
@@ -85,7 +91,7 @@ function m(e) {
 	} : e, l = { ...c }, u = t ?? n, d = r ?? i, f = a ?? o;
 	return u !== void 0 && (l.id_token = u), d !== void 0 && (l.access_token = d), f !== void 0 && (l.refresh_token = f), l;
 }
-function h(e) {
+function g(e) {
 	return e ? {
 		idToken: e.id_token ?? null,
 		accessToken: e.access_token ?? null,
@@ -96,11 +102,11 @@ function h(e) {
 		refreshToken: null
 	};
 }
-function g({ storage: e, keys: n } = {}) {
+function _({ storage: e, keys: n } = {}) {
 	let r = {
 		...t,
 		...n
-	}, i = p(e);
+	}, i = m(e);
 	function a(e) {
 		try {
 			let t = i.getItem(e);
@@ -116,7 +122,7 @@ function g({ storage: e, keys: n } = {}) {
 	}
 	return {
 		saveTokens(e) {
-			let t = m(e);
+			let t = h(e);
 			if (!t) return null;
 			let n = {
 				...a(r.TOKENS) || {},
@@ -156,28 +162,28 @@ function g({ storage: e, keys: n } = {}) {
 }
 //#endregion
 //#region src/core/jwt.js
-function _(e) {
+function v(e) {
 	let t = e.replace(/-/g, "+").replace(/_/g, "/"), n = t.padEnd(t.length + (4 - t.length % 4) % 4, "="), r = typeof atob == "function" ? atob(n) : globalThis.Buffer.from(n, "base64").toString("binary"), i = Array.from(r, (e) => `%${e.charCodeAt(0).toString(16).padStart(2, "0")}`).join("");
 	return JSON.parse(decodeURIComponent(i));
 }
-function v(e) {
+function y(e) {
 	try {
 		let [, t] = String(e).split(".");
-		return t ? _(t) : null;
+		return t ? v(t) : null;
 	} catch {
 		return null;
 	}
 }
-function y(e) {
-	let t = v(e)?.exp;
+function b(e) {
+	let t = y(e)?.exp;
 	return typeof t == "number" ? t - Math.floor(Date.now() / 1e3) : Infinity;
 }
-function b(e, t = 30) {
-	return !e || y(e) <= t;
+function x(e, t = 30) {
+	return !e || b(e) <= t;
 }
 //#endregion
 //#region src/core/tokenManager.js
-function x({ tokenStore: e, requestRefresh: t, broadcaster: n, onRefreshed: r, onForceLogout: i, expirySkewSeconds: a = 30 }) {
+function S({ tokenStore: e, requestRefresh: t, broadcaster: n, onRefreshed: r, onForceLogout: i, expirySkewSeconds: a = 30 }) {
 	let o = !1, c = [];
 	function l(e, t = null) {
 		let n = c;
@@ -193,7 +199,7 @@ function x({ tokenStore: e, requestRefresh: t, broadcaster: n, onRefreshed: r, o
 			let i = e.getRefreshToken();
 			if (!i) throw Error("No refresh token available");
 			let c = e.getIdToken();
-			if (!u && c && !b(c, a)) return o = !1, l(null, c), c;
+			if (!u && c && !x(c, a)) return o = !1, l(null, c), c;
 			let d = await t({
 				refreshToken: i,
 				refresh_token: i
@@ -203,14 +209,14 @@ function x({ tokenStore: e, requestRefresh: t, broadcaster: n, onRefreshed: r, o
 			if (!p) throw Error("Refresh response contained no id_token");
 			return n?.post(s.TOKEN_REFRESHED, { tokens: f }), r?.(f), o = !1, l(null, p), p;
 		} catch (t) {
-			throw o = !1, l(t), b(e.getIdToken(), 0) && (n?.post(s.LOGOUT), i?.()), t;
+			throw o = !1, l(t), x(e.getIdToken(), 0) && (n?.post(s.LOGOUT), i?.()), t;
 		}
 	}
 	return {
 		async getValidToken() {
 			let t = e.getIdToken();
 			if (!t) return null;
-			if (!b(t, a)) return t;
+			if (!x(t, a)) return t;
 			try {
 				return await u(!0);
 			} catch {
@@ -220,7 +226,7 @@ function x({ tokenStore: e, requestRefresh: t, broadcaster: n, onRefreshed: r, o
 		refresh: u,
 		expiresIn() {
 			let t = e.getIdToken();
-			return t ? y(t) : 0;
+			return t ? b(t) : 0;
 		},
 		get isRefreshing() {
 			return o;
@@ -229,7 +235,7 @@ function x({ tokenStore: e, requestRefresh: t, broadcaster: n, onRefreshed: r, o
 }
 //#endregion
 //#region src/core/broadcast.js
-function S({ channelName: e = o, enabled: t = !0 } = {}) {
+function C({ channelName: e = o, enabled: t = !0 } = {}) {
 	let n = /* @__PURE__ */ new Set(), r = null, i = !1;
 	function a(e) {
 		n.forEach((t) => t(e));
@@ -298,7 +304,7 @@ function S({ channelName: e = o, enabled: t = !0 } = {}) {
 }
 //#endregion
 //#region src/core/handleErrorResponse.js
-function C(e) {
+function w(e) {
 	if (e.response) {
 		let t = e.response.data;
 		return {
@@ -320,7 +326,7 @@ function C(e) {
 }
 //#endregion
 //#region src/core/backends/httpBackend.js
-function w(e, { endpoints: t } = {}) {
+function T(e, { endpoints: t } = {}) {
 	let r = {
 		...n,
 		...t
@@ -333,7 +339,7 @@ function w(e, { endpoints: t } = {}) {
 				data: r
 			};
 		} catch (e) {
-			return C(e);
+			return w(e);
 		}
 	}
 	return {
@@ -352,15 +358,15 @@ function w(e, { endpoints: t } = {}) {
 }
 //#endregion
 //#region src/core/createAuthClient.js
-function T(e = {}) {
+function E(e = {}) {
 	let { baseURL: t, storage: n, storageKeys: r, endpoints: i, headers: a, expirySkewSeconds: o = 30, crossTab: c = !0, onForceLogout: l, onAuthStateChange: u } = e;
 	if (!t) throw Error("createAuthClient requires a baseURL — e.g. createAuthClient({ baseURL: \"https://api.example.com/api\" }). Without it every request would go to the current origin.");
-	let f = g({
+	let d = _({
 		storage: n,
 		keys: r
-	}), p = S({ enabled: c }), m = /* @__PURE__ */ new Set();
-	function _() {
-		let { idToken: e, accessToken: t } = h(f.getTokens());
+	}), p = C({ enabled: c }), m = /* @__PURE__ */ new Set();
+	function h() {
+		let { idToken: e, accessToken: t } = g(d.getTokens());
 		return {
 			idToken: e,
 			accessToken: t
@@ -368,9 +374,9 @@ function T(e = {}) {
 	}
 	function v() {
 		return {
-			isAuthenticated: f.isAuthenticated(),
-			user: f.getUser(),
-			..._(),
+			isAuthenticated: d.isAuthenticated(),
+			user: d.getUser(),
+			...h(),
 			isLoading: !1,
 			error: null
 		};
@@ -379,47 +385,50 @@ function T(e = {}) {
 	function b() {
 		return y;
 	}
-	function C(e) {
+	function x(e) {
 		Object.keys(e).some((t) => y[t] !== e[t]) && (y = {
 			...y,
 			...e
 		}, m.forEach((e) => e(y)), u?.(y));
 	}
-	function T(e) {
+	function w(e) {
 		return m.add(e), () => m.delete(e);
 	}
 	function E() {
-		C({
-			isAuthenticated: f.isAuthenticated(),
-			user: f.getUser(),
-			..._()
-		});
+		x({ error: null });
 	}
 	function D() {
-		f.clear(), C({
+		x({
+			isAuthenticated: d.isAuthenticated(),
+			user: d.getUser(),
+			...h()
+		});
+	}
+	function O() {
+		d.clear(), x({
 			isAuthenticated: !1,
 			user: null,
 			idToken: null,
 			accessToken: null
 		});
 	}
-	function O() {
-		D(), l?.();
+	function k() {
+		O(), l?.();
 	}
-	async function k(e) {
-		C({
+	async function A(e) {
+		x({
 			isLoading: !0,
 			error: null
 		});
 		try {
 			let t = await e();
-			return C({
+			return x({
 				isLoading: !1,
 				error: t.error ? t.message : null
 			}), t;
 		} catch (e) {
 			let t = e?.message || "Something went wrong";
-			return C({
+			return x({
 				isLoading: !1,
 				error: t
 			}), {
@@ -429,85 +438,86 @@ function T(e = {}) {
 			};
 		}
 	}
-	let A, j = x({
-		tokenStore: f,
+	let j, M = S({
+		tokenStore: d,
 		expirySkewSeconds: o,
 		broadcaster: p,
-		requestRefresh: (e) => A.refreshToken(e),
-		onRefreshed: () => C(_()),
-		onForceLogout: O
+		requestRefresh: (e) => j.refreshToken(e),
+		onRefreshed: () => x(h()),
+		onForceLogout: k
 	});
-	A = w(d({
+	j = T(f({
 		baseURL: t,
 		headers: a,
-		tokenStore: f,
-		tokenManager: j
+		tokenStore: d,
+		tokenManager: M,
+		endpoints: i
 	}), { endpoints: i }), p.subscribe((e) => {
 		switch (e.type) {
 			case s.TOKEN_REFRESHED:
-				e.tokens && f.saveTokens(e.tokens), E();
+				e.tokens && d.saveTokens(e.tokens), D();
 				break;
 			case s.LOGOUT:
-				D(), l?.();
+				O(), l?.();
 				break;
 			case s.LOGIN:
-				E();
+				D();
 				break;
 			case s.NEED_REFRESH:
-				j.isRefreshing || j.refresh(!0).catch(() => {});
+				M.isRefreshing || M.refresh(!0).catch(() => {});
 				break;
 			default: break;
 		}
 	});
-	function M(e) {
-		let { user: t, tokens: n, ...r } = e, i = f.saveTokens(n ?? r);
-		return t && f.saveUser(t), C({
+	function N(e) {
+		let { user: t, tokens: n, ...r } = e, i = d.saveTokens(n ?? r);
+		return t && d.saveUser(t), x({
 			isAuthenticated: !!i?.id_token,
-			user: t ?? f.getUser(),
-			..._()
+			user: t ?? d.getUser(),
+			...h()
 		}), i;
 	}
-	function N(e) {
-		return k(() => A.signUp(e));
-	}
 	function P(e) {
-		return k(async () => {
-			let t = await A.signIn(e);
-			return t.error || (M(t.data), p.post(s.LOGIN)), t;
-		});
+		return A(() => j.signUp(e));
 	}
 	function F(e) {
-		return k(() => A.verifyOtp(e));
-	}
-	function I(e) {
-		return k(() => A.resendOtp(e));
-	}
-	function L(e) {
-		return k(() => A.forgotPassword(e));
-	}
-	function R(e) {
-		return k(() => A.verifyResetOtp(e));
-	}
-	function z(e) {
-		return k(() => A.resetPassword(e));
-	}
-	function B(e) {
-		return k(() => A.changePassword(e));
-	}
-	function V(e) {
-		return k(async () => {
-			let t = await A.deleteAccount(e);
-			return t.error || (D(), p.post(s.LOGOUT)), t;
+		return A(async () => {
+			let t = await j.signIn(e);
+			return t.error || (N(t.data), p.post(s.LOGIN)), t;
 		});
 	}
-	function H() {
-		return k(async () => {
+	function I(e) {
+		return A(() => j.verifyOtp(e));
+	}
+	function L(e) {
+		return A(() => j.resendOtp(e));
+	}
+	function R(e) {
+		return A(() => j.forgotPassword(e));
+	}
+	function z(e) {
+		return A(() => j.verifyResetOtp(e));
+	}
+	function B(e) {
+		return A(() => j.resetPassword(e));
+	}
+	function V(e) {
+		return A(() => j.changePassword(e));
+	}
+	function H(e) {
+		return A(async () => {
+			let t = await j.deleteAccount(e);
+			return t.error || (O(), p.post(s.LOGOUT)), t;
+		});
+	}
+	function U() {
+		return A(async () => {
 			try {
 				return {
 					error: !1,
 					data: {
-						idToken: await j.refresh(!0),
-						..._()
+						idToken: await M.refresh(!0),
+						...h()
 					}
 				};
 			} catch (e) {
@@ -519,49 +529,50 @@ function T(e = {}) {
 			}
 		});
 	}
-	function U() {
-		return k(async () => {
-			let e = await A.signOut({});
-			return D(), p.post(s.LOGOUT), e;
+	function W() {
+		return A(async () => {
+			let e = await j.signOut({});
+			return O(), p.post(s.LOGOUT), e;
 		});
 	}
-	function W() {
+	function G() {
 		p.close();
 	}
-	function G() {
+	function K() {
 		p.open();
 	}
-	function K() {
+	function q() {
 		p.destroy(), m.clear();
 	}
 	return {
 		getState: b,
-		subscribe: T,
-		signUp: N,
-		signIn: P,
-		login: P,
-		verifyOtp: F,
-		resendOtp: I,
-		forgotPassword: L,
-		verifyResetOtp: R,
-		resetPassword: z,
-		changePassword: B,
-		deleteAccount: V,
-		signOut: U,
-		logout: U,
-		refreshToken: H,
-		getTokens: () => f.getTokens(),
-		getIdToken: () => f.getIdToken(),
-		getAccessToken: () => f.getAccessToken(),
-		getRefreshToken: () => f.getRefreshToken(),
-		getValidToken: () => j.getValidToken(),
-		expiresIn: () => j.expiresIn(),
-		connect: G,
-		disconnect: W,
-		destroy: K,
-		tokenStore: f,
-		__backend: A
+		subscribe: w,
+		clearError: E,
+		signUp: P,
+		signIn: F,
+		login: F,
+		verifyOtp: I,
+		resendOtp: L,
+		forgotPassword: R,
+		verifyResetOtp: z,
+		resetPassword: B,
+		changePassword: V,
+		deleteAccount: H,
+		signOut: W,
+		logout: W,
+		refreshToken: U,
+		getTokens: () => d.getTokens(),
+		getIdToken: () => d.getIdToken(),
+		getAccessToken: () => d.getAccessToken(),
+		getRefreshToken: () => d.getRefreshToken(),
+		getValidToken: () => M.getValidToken(),
+		expiresIn: () => M.expiresIn(),
+		connect: K,
+		disconnect: G,
+		destroy: q,
+		tokenStore: d,
+		__backend: j
 	};
 }
 //#endregion
-export { l as _, x as a, a as b, y as c, h as d, d as f, c as g, s as h, S as i, g as l, n as m, w as n, v as o, o as p, C as r, b as s, T as t, m as u, t as v, i as x, r as y };
+export { l as _, S as a, a as b, b as c, g as d, f, c as g, s as h, C as i, _ as l, n as m, T as n, y as o, o as p, w as r, x as s, E as t, h as u, t as v, i as x, r as y };

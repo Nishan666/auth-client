@@ -1,5 +1,5 @@
-import { x as e, y as t } from "./createAuthClient-B9GXGl3i.js";
-import { t as n } from "./useAuth-DI6MOk-d.js";
+import { x as e, y as t } from "./createAuthClient-GpONd1o-.js";
+import { t as n } from "./useAuth-CdJsHUMT.js";
 import { useCallback as r, useEffect as i, useId as a, useRef as o, useState as s } from "react";
 import { Fragment as c, jsx as l, jsxs as u } from "react/jsx-runtime";
 //#region src/ui/components/AuthCard/index.jsx
@@ -253,10 +253,11 @@ function x({ label: e, error: t, hint: n, showStrength: r, value: i, onChange: o
 }
 //#endregion
 //#region src/ui/components/LoadingSpinner/index.jsx
-function S({ size: e = "h-4 w-4", className: t = "", label: n = "Loading" }) {
+function S({ size: e = "h-4 w-4", className: t = "", label: n = "Loading", decorative: r = !1 }) {
 	return /* @__PURE__ */ l("span", {
-		role: "status",
-		"aria-label": n,
+		role: r ? void 0 : "status",
+		"aria-hidden": r || void 0,
+		"aria-label": r ? void 0 : n,
 		className: `inline-block ${e} rounded-full border-2 border-current border-t-transparent animate-spin ${t}`
 	});
 }
@@ -268,19 +269,22 @@ var C = {
 	danger: "bg-ac-danger text-white hover:opacity-90"
 };
 function w({ text: e, children: t, handleClick: n, loading: r, type: i = "button", variant: a = "primary", disabled: o, className: s = "" }) {
-	let c = o || r;
+	let d = o || r;
 	return /* @__PURE__ */ l("button", {
 		type: i,
-		disabled: c,
+		disabled: d,
 		onClick: n,
 		"aria-busy": r || void 0,
 		className: `w-full h-10 px-4 inline-flex items-center justify-center gap-2 rounded-ac
         text-sm font-medium transition-colors
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ac-accent/25 focus-visible:ring-offset-2
         ${C[a] ?? C.primary}
-        ${c ? "opacity-50 pointer-events-none" : ""}
+        ${d ? "opacity-50 pointer-events-none" : ""}
         ${s}`,
-		children: r ? /* @__PURE__ */ l(S, {}) : t ?? e
+		children: r ? /* @__PURE__ */ u(c, { children: [/* @__PURE__ */ l(S, { decorative: !0 }), /* @__PURE__ */ l("span", {
+			className: "sr-only",
+			children: t ?? e
+		})] }) : t ?? e
 	});
 }
 //#endregion
@@ -321,37 +325,42 @@ function N(e, t) {
 //#endregion
 //#region src/ui/screens/SignIn.jsx
 function P({ setFlow: e, flow: r, onAuthenticated: i }) {
-	let { signIn: a, isLoading: o, error: f } = n(), [p, m] = s(t.EMAIL), [g, _] = s({
+	let { signIn: a, isLoading: o, error: f, clearError: p } = n(), [m, g] = s(t.EMAIL), [_, v] = s({
 		identifier: "",
 		password: ""
-	}), [v, y] = s({});
-	function b() {
-		let e = {}, t = j(g.identifier, p);
-		return t && (e.identifier = t), g.password || (e.password = "Password is required"), e;
+	}), [y, b] = s({});
+	function S() {
+		let e = {}, t = j(_.identifier, m);
+		return t && (e.identifier = t), _.password || (e.password = "Password is required"), e;
 	}
-	async function S(e) {
+	async function C(e) {
 		e.preventDefault();
-		let n = b();
+		let n = S();
 		if (Object.keys(n).length) {
-			y(n);
+			b(n);
 			return;
 		}
-		y({});
-		let r = p === t.EMAIL, o = await a({
-			[r ? "email" : "phone"]: g.identifier.trim(),
-			password: g.password
+		b({});
+		let r = m === t.EMAIL, o = await a({
+			[r ? "email" : "phone"]: _.identifier.trim(),
+			password: _.password
 		});
 		o.error || i?.(o.data);
 	}
-	let C = (e) => (t) => _((n) => ({
-		...n,
-		[e]: t.target.value
-	}));
-	function T(e) {
-		m(e), _((e) => ({
+	let T = (e) => (t) => {
+		f && p(), b((t) => t[e] ? {
+			...t,
+			[e]: ""
+		} : t), v((n) => ({
+			...n,
+			[e]: t.target.value
+		}));
+	};
+	function O(e) {
+		f && p(), g(e), v((e) => ({
 			...e,
 			identifier: ""
-		})), y({});
+		})), b({});
 	}
 	return /* @__PURE__ */ l(d, {
 		title: "Sign in",
@@ -366,22 +375,22 @@ function P({ setFlow: e, flow: r, onAuthenticated: i }) {
 			})
 		] }),
 		children: /* @__PURE__ */ u("form", {
-			onSubmit: S,
+			onSubmit: C,
 			noValidate: !0,
 			children: [
 				/* @__PURE__ */ l(h, {
-					type: p,
-					value: g.identifier,
-					onChange: C("identifier"),
-					error: v.identifier,
-					onTypeChange: T
+					type: m,
+					value: _.identifier,
+					onChange: T("identifier"),
+					error: y.identifier,
+					onTypeChange: O
 				}),
 				/* @__PURE__ */ l(x, {
 					label: "Password",
 					placeholder: "Enter your password",
-					value: g.password,
-					onChange: C("password"),
-					error: v.password,
+					value: _.password,
+					onChange: T("password"),
+					error: y.password,
 					autoComplete: "current-password"
 				}),
 				/* @__PURE__ */ l("div", {
@@ -413,53 +422,58 @@ function P({ setFlow: e, flow: r, onAuthenticated: i }) {
 //#endregion
 //#region src/ui/screens/SignUp.jsx
 function F({ setFlow: r }) {
-	let { signUp: i, isLoading: a, error: o } = n(), [f, m] = s(t.EMAIL), [g, _] = s({
+	let { signUp: i, isLoading: a, error: o, clearError: f } = n(), [m, g] = s(t.EMAIL), [_, v] = s({
 		firstName: "",
 		lastName: "",
 		identifier: "",
 		password: "",
 		confirm: ""
-	}), [v, y] = s({});
-	function b() {
+	}), [y, b] = s({});
+	function S() {
 		let e = {};
-		g.firstName.trim() || (e.firstName = "First name is required"), g.lastName.trim() || (e.lastName = "Last name is required");
-		let t = j(g.identifier, f);
+		_.firstName.trim() || (e.firstName = "First name is required"), _.lastName.trim() || (e.lastName = "Last name is required");
+		let t = j(_.identifier, m);
 		t && (e.identifier = t);
-		let n = M(g.password);
+		let n = M(_.password);
 		n && (e.password = n);
-		let r = N(g.password, g.confirm);
+		let r = N(_.password, _.confirm);
 		return r && (e.confirm = r), e;
 	}
-	async function S(n) {
+	async function C(n) {
 		n.preventDefault();
-		let a = b();
+		let a = S();
 		if (Object.keys(a).length) {
-			y(a);
+			b(a);
 			return;
 		}
-		y({});
-		let o = f === t.EMAIL;
+		b({});
+		let o = m === t.EMAIL;
 		(await i({
-			firstName: g.firstName.trim(),
-			lastName: g.lastName.trim(),
-			[o ? "email" : "phone"]: g.identifier.trim(),
-			password: g.password
+			firstName: _.firstName.trim(),
+			lastName: _.lastName.trim(),
+			[o ? "email" : "phone"]: _.identifier.trim(),
+			password: _.password
 		})).error || r({
-			pendingIdentifier: g.identifier.trim(),
-			identifierType: f,
+			pendingIdentifier: _.identifier.trim(),
+			identifierType: m,
 			otpPurpose: e.AUTH,
 			screen: D.OTP
 		});
 	}
-	let C = (e) => (t) => _((n) => ({
-		...n,
-		[e]: t.target.value
-	}));
-	function T(e) {
-		m(e), _((e) => ({
+	let T = (e) => (t) => {
+		o && f(), b((t) => t[e] ? {
+			...t,
+			[e]: ""
+		} : t), v((n) => ({
+			...n,
+			[e]: t.target.value
+		}));
+	};
+	function O(e) {
+		o && f(), g(e), v((e) => ({
 			...e,
 			identifier: ""
-		})), y({});
+		})), b({});
 	}
 	return /* @__PURE__ */ l(d, {
 		title: "Create account",
@@ -474,7 +488,7 @@ function F({ setFlow: r }) {
 			})
 		] }),
 		children: /* @__PURE__ */ u("form", {
-			onSubmit: S,
+			onSubmit: C,
 			noValidate: !0,
 			children: [
 				/* @__PURE__ */ u("div", {
@@ -483,43 +497,43 @@ function F({ setFlow: r }) {
 						label: "First name",
 						type: "text",
 						placeholder: "Jane",
-						value: g.firstName,
-						onChange: C("firstName"),
-						error: v.firstName,
+						value: _.firstName,
+						onChange: T("firstName"),
+						error: y.firstName,
 						autoComplete: "given-name"
 					}), /* @__PURE__ */ l(p, {
 						label: "Last name",
 						type: "text",
 						placeholder: "Doe",
-						value: g.lastName,
-						onChange: C("lastName"),
-						error: v.lastName,
+						value: _.lastName,
+						onChange: T("lastName"),
+						error: y.lastName,
 						autoComplete: "family-name"
 					})]
 				}),
 				/* @__PURE__ */ l(h, {
-					type: f,
-					value: g.identifier,
-					onChange: C("identifier"),
-					error: v.identifier,
-					onTypeChange: T
+					type: m,
+					value: _.identifier,
+					onChange: T("identifier"),
+					error: y.identifier,
+					onTypeChange: O
 				}),
 				/* @__PURE__ */ l(x, {
 					label: "Password",
 					placeholder: "Create a password",
 					hint: "At least 8 characters",
-					value: g.password,
-					onChange: C("password"),
-					error: v.password,
+					value: _.password,
+					onChange: T("password"),
+					error: y.password,
 					autoComplete: "new-password",
 					showStrength: !0
 				}),
 				/* @__PURE__ */ l(x, {
 					label: "Confirm password",
 					placeholder: "Re-enter your password",
-					value: g.confirm,
-					onChange: C("confirm"),
-					error: v.confirm,
+					value: _.confirm,
+					onChange: T("confirm"),
+					error: y.confirm,
 					autoComplete: "new-password"
 				}),
 				/* @__PURE__ */ l(E, {
@@ -539,25 +553,25 @@ function F({ setFlow: r }) {
 //#region src/ui/screens/OtpVerify.jsx
 var I = 60;
 function L({ flow: a, setFlow: c }) {
-	let { verifyOtp: f, verifyResetOtp: p, resendOtp: m, isLoading: h, error: g } = n(), { pendingIdentifier: _, identifierType: v, otpPurpose: y } = a, [b, x] = s(() => [
+	let { verifyOtp: f, verifyResetOtp: p, resendOtp: m, isLoading: h, error: g, clearError: _ } = n(), { pendingIdentifier: v, identifierType: y, otpPurpose: b } = a, [x, S] = s(() => [
 		,
 		,
 		,
 		,
 		,
 		,
-	].fill("")), [S, C] = s(I), [T, O] = s(!1), k = o([]), A = o(null), j = r(() => {
-		clearInterval(A.current), A.current = setInterval(() => {
-			C((e) => e <= 1 ? (clearInterval(A.current), 0) : e - 1);
+	].fill("")), [C, T] = s(I), [O, k] = s(!1), A = o([]), j = o(null), M = r(() => {
+		clearInterval(j.current), j.current = setInterval(() => {
+			T((e) => e <= 1 ? (clearInterval(j.current), 0) : e - 1);
 		}, 1e3);
 	}, []);
-	i(() => (k.current[0]?.focus(), j(), () => clearInterval(A.current)), [j]);
-	let M = r(async (t) => {
+	i(() => (A.current[0]?.focus(), M(), () => clearInterval(j.current)), [M]);
+	let N = r(async (t) => {
 		let n = {
-			identifier: _,
+			identifier: v,
 			otp: t
 		};
-		if (y === e.PASSWORD_RESET) {
+		if (b === e.PASSWORD_RESET) {
 			let e = await p(n);
 			e.error || c({
 				resetToken: e.data.resetToken,
@@ -571,26 +585,27 @@ function L({ flow: a, setFlow: c }) {
 			notice: "Account verified. Sign in to continue."
 		});
 	}, [
-		_,
-		y,
+		v,
+		b,
 		f,
 		p,
 		c
 	]);
-	function N(e, t) {
-		let n = t.replace(/\D/g, "").slice(-1), r = [...b];
-		if (r[e] = n, x(r), n) {
+	function P(e, t) {
+		g && _();
+		let n = t.replace(/\D/g, "").slice(-1), r = [...x];
+		if (r[e] = n, S(r), n) {
 			if (e < 5) {
-				k.current[e + 1]?.focus();
+				A.current[e + 1]?.focus();
 				return;
 			}
-			r.every(Boolean) && M(r.join(""));
+			r.every(Boolean) && N(r.join(""));
 		}
 	}
-	function P(e, t) {
-		t.key === "Backspace" && !b[e] && e > 0 && k.current[e - 1]?.focus(), t.key === "ArrowLeft" && e > 0 && (t.preventDefault(), k.current[e - 1]?.focus()), t.key === "ArrowRight" && e < 5 && (t.preventDefault(), k.current[e + 1]?.focus());
+	function F(e, t) {
+		t.key === "Backspace" && !x[e] && e > 0 && A.current[e - 1]?.focus(), t.key === "ArrowLeft" && e > 0 && (t.preventDefault(), A.current[e - 1]?.focus()), t.key === "ArrowRight" && e < 5 && (t.preventDefault(), A.current[e + 1]?.focus());
 	}
-	function F(e) {
+	function L(e) {
 		e.preventDefault();
 		let t = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
 		if (!t) return;
@@ -604,36 +619,36 @@ function L({ flow: a, setFlow: c }) {
 		].fill("");
 		t.split("").forEach((e, t) => {
 			n[t] = e;
-		}), x(n), k.current[Math.min(t.length, 5)]?.focus(), t.length === 6 && M(t);
+		}), S(n), A.current[Math.min(t.length, 5)]?.focus(), t.length === 6 && N(t);
 	}
-	function L(e) {
+	function R(e) {
 		e.preventDefault();
-		let t = b.join("");
-		t.length === 6 && M(t);
+		let t = x.join("");
+		t.length === 6 && N(t);
 	}
-	async function R() {
-		O(!1), !(await m({ identifier: _ })).error && (x([
+	async function z() {
+		k(!1), !(await m({ identifier: v })).error && (S([
 			,
 			,
 			,
 			,
 			,
 			,
-		].fill("")), k.current[0]?.focus(), O(!0), C(I), j());
+		].fill("")), A.current[0]?.focus(), k(!0), T(I), M());
 	}
-	let z = b.every(Boolean), B = y === e.PASSWORD_RESET, V = v === t.PHONE ? "phone" : "email", H = B ? D.FORGOT_PASSWORD : D.SIGN_IN;
+	let B = x.every(Boolean), V = b === e.PASSWORD_RESET, H = y === t.PHONE ? "phone" : "email", U = V ? D.FORGOT_PASSWORD : D.SIGN_IN;
 	return /* @__PURE__ */ u(d, {
-		title: B ? "Verify to reset" : "Confirm your account",
-		subtitle: `Enter the 6-digit code sent to ${_ || `your ${V}`}`,
+		title: V ? "Verify to reset" : "Confirm your account",
+		subtitle: `Enter the 6-digit code sent to ${v || `your ${H}`}`,
 		children: [/* @__PURE__ */ u("form", {
-			onSubmit: L,
+			onSubmit: R,
 			children: [
 				/* @__PURE__ */ l("div", {
 					className: "flex gap-2 justify-between mb-5",
-					onPaste: F,
-					children: b.map((e, t) => /* @__PURE__ */ l("input", {
+					onPaste: L,
+					children: x.map((e, t) => /* @__PURE__ */ l("input", {
 						ref: (e) => {
-							k.current[t] = e;
+							A.current[t] = e;
 						},
 						type: "text",
 						inputMode: "numeric",
@@ -641,8 +656,8 @@ function L({ flow: a, setFlow: c }) {
 						maxLength: 1,
 						value: e,
 						"aria-label": `Digit ${t + 1} of 6`,
-						onChange: (e) => N(t, e.target.value),
-						onKeyDown: (e) => P(t, e),
+						onChange: (e) => P(t, e.target.value),
+						onKeyDown: (e) => F(t, e),
 						onFocus: (e) => e.target.select(),
 						className: `ac-otp-input w-11 h-12 text-center text-base font-medium rounded-ac
                 bg-ac-surface text-ac-fg border outline-none transition-colors
@@ -650,7 +665,7 @@ function L({ flow: a, setFlow: c }) {
                 ${e ? "border-ac-accent" : "border-ac-border-strong"}`
 					}, t))
 				}),
-				T && /* @__PURE__ */ l(E, {
+				O && /* @__PURE__ */ l(E, {
 					tone: "success",
 					children: "A new code has been sent."
 				}),
@@ -662,7 +677,7 @@ function L({ flow: a, setFlow: c }) {
 					type: "submit",
 					text: "Verify",
 					loading: h,
-					disabled: !z
+					disabled: !B
 				})
 			]
 		}), /* @__PURE__ */ u("div", {
@@ -670,18 +685,18 @@ function L({ flow: a, setFlow: c }) {
 			children: [/* @__PURE__ */ l("button", {
 				type: "button",
 				className: "text-ac-muted hover:text-ac-fg hover:underline underline-offset-4",
-				onClick: () => c({ screen: H }),
+				onClick: () => c({ screen: U }),
 				children: "Back"
-			}), S > 0 ? /* @__PURE__ */ u("span", {
+			}), C > 0 ? /* @__PURE__ */ u("span", {
 				className: "text-ac-muted",
 				children: ["Resend in ", /* @__PURE__ */ u("span", {
 					className: "tabular-nums",
-					children: [S, "s"]
+					children: [C, "s"]
 				})]
 			}) : /* @__PURE__ */ l("button", {
 				type: "button",
 				className: "font-medium text-ac-fg hover:underline underline-offset-4 disabled:opacity-50",
-				onClick: R,
+				onClick: z,
 				disabled: h,
 				children: "Resend code"
 			})]
@@ -691,25 +706,25 @@ function L({ flow: a, setFlow: c }) {
 //#endregion
 //#region src/ui/screens/ForgotPassword.jsx
 function R({ setFlow: r }) {
-	let { forgotPassword: i, isLoading: a, error: o } = n(), [f, p] = s(t.EMAIL), [m, g] = s(""), [_, v] = s("");
-	async function y(n) {
+	let { forgotPassword: i, isLoading: a, error: o, clearError: f } = n(), [p, m] = s(t.EMAIL), [g, _] = s(""), [v, y] = s("");
+	async function b(n) {
 		n.preventDefault();
-		let a = j(m, f);
+		let a = j(g, p);
 		if (a) {
-			v(a);
+			y(a);
 			return;
 		}
-		v("");
-		let o = f === t.EMAIL;
-		(await i({ [o ? "email" : "phone"]: m.trim() })).error || r({
-			pendingIdentifier: m.trim(),
-			identifierType: f,
+		y("");
+		let o = p === t.EMAIL;
+		(await i({ [o ? "email" : "phone"]: g.trim() })).error || r({
+			pendingIdentifier: g.trim(),
+			identifierType: p,
 			otpPurpose: e.PASSWORD_RESET,
 			screen: D.RESET_PASSWORD_OTP
 		});
 	}
-	function b(e) {
-		p(e), g(""), v("");
+	function x(e) {
+		o && f(), m(e), _(""), y("");
 	}
 	return /* @__PURE__ */ l(d, {
 		title: "Reset password",
@@ -724,15 +739,17 @@ function R({ setFlow: r }) {
 			})
 		] }),
 		children: /* @__PURE__ */ u("form", {
-			onSubmit: y,
+			onSubmit: b,
 			noValidate: !0,
 			children: [
 				/* @__PURE__ */ l(h, {
-					type: f,
-					value: m,
-					onChange: (e) => g(e.target.value),
-					error: _,
-					onTypeChange: b
+					type: p,
+					value: g,
+					onChange: (e) => {
+						o && f(), v && y(""), _(e.target.value);
+					},
+					error: v,
+					onTypeChange: x
 				}),
 				/* @__PURE__ */ l(E, {
 					tone: "error",
@@ -750,26 +767,26 @@ function R({ setFlow: r }) {
 //#endregion
 //#region src/ui/screens/ResetPassword.jsx
 function z({ flow: e, setFlow: t }) {
-	let { resetPassword: r, isLoading: i, error: a } = n(), { resetToken: o } = e, [c, f] = s({
+	let { resetPassword: r, isLoading: i, error: a, clearError: o } = n(), { resetToken: c } = e, [f, p] = s({
 		password: "",
 		confirm: ""
-	}), [p, m] = s({});
-	function h() {
-		let e = {}, t = M(c.password, { label: "New password" });
+	}), [m, h] = s({});
+	function g() {
+		let e = {}, t = M(f.password, { label: "New password" });
 		t && (e.password = t);
-		let n = N(c.password, c.confirm);
+		let n = N(f.password, f.confirm);
 		return n && (e.confirm = n), e;
 	}
-	async function g(e) {
+	async function _(e) {
 		e.preventDefault();
-		let n = h();
+		let n = g();
 		if (Object.keys(n).length) {
-			m(n);
+			h(n);
 			return;
 		}
-		m({}), (await r({
-			resetToken: o,
-			newPassword: c.password
+		h({}), (await r({
+			resetToken: c,
+			newPassword: f.password
 		})).error || t({
 			screen: D.SIGN_IN,
 			resetToken: null,
@@ -777,33 +794,38 @@ function z({ flow: e, setFlow: t }) {
 			notice: "Password updated. Sign in with your new password."
 		});
 	}
-	let _ = (e) => (t) => f((n) => ({
-		...n,
-		[e]: t.target.value
-	}));
+	let v = (e) => (t) => {
+		a && o(), h((t) => t[e] ? {
+			...t,
+			[e]: ""
+		} : t), p((n) => ({
+			...n,
+			[e]: t.target.value
+		}));
+	};
 	return /* @__PURE__ */ l(d, {
 		title: "Set a new password",
 		subtitle: "Choose a password you haven't used before",
 		children: /* @__PURE__ */ u("form", {
-			onSubmit: g,
+			onSubmit: _,
 			noValidate: !0,
 			children: [
 				/* @__PURE__ */ l(x, {
 					label: "New password",
 					placeholder: "Enter a new password",
 					hint: "At least 8 characters",
-					value: c.password,
-					onChange: _("password"),
-					error: p.password,
+					value: f.password,
+					onChange: v("password"),
+					error: m.password,
 					autoComplete: "new-password",
 					showStrength: !0
 				}),
 				/* @__PURE__ */ l(x, {
 					label: "Confirm new password",
 					placeholder: "Re-enter your new password",
-					value: c.confirm,
-					onChange: _("confirm"),
-					error: p.confirm,
+					value: f.confirm,
+					onChange: v("confirm"),
+					error: m.confirm,
 					autoComplete: "new-password"
 				}),
 				/* @__PURE__ */ l(E, {
@@ -821,70 +843,75 @@ function z({ flow: e, setFlow: t }) {
 }
 //#endregion
 //#region src/ui/AuthFlow.jsx
-function B({ initialScreen: n = D.SIGN_IN, onAuthenticated: r }) {
-	let [i, a] = s({
-		screen: n,
+function B({ initialScreen: r = D.SIGN_IN, onAuthenticated: i }) {
+	let { clearError: a } = n(), [o, c] = s({
+		screen: r,
 		pendingIdentifier: null,
 		identifierType: t.EMAIL,
 		otpPurpose: e.AUTH,
 		resetToken: null,
 		notice: null
 	});
-	function o(e) {
-		a((t) => ({
+	function u(e) {
+		e.screen && e.screen !== o.screen && a(), c((t) => ({
 			...t,
 			notice: null,
 			...e
 		}));
 	}
-	let c = {
-		flow: i,
-		setFlow: o,
-		onAuthenticated: r
+	let d = {
+		flow: o,
+		setFlow: u,
+		onAuthenticated: i
 	};
-	switch (i.screen) {
-		case D.SIGN_UP: return /* @__PURE__ */ l(F, { ...c });
+	switch (o.screen) {
+		case D.SIGN_UP: return /* @__PURE__ */ l(F, { ...d });
 		case D.OTP:
-		case D.RESET_PASSWORD_OTP: return /* @__PURE__ */ l(L, { ...c });
-		case D.FORGOT_PASSWORD: return /* @__PURE__ */ l(R, { ...c });
-		case D.RESET_PASSWORD: return /* @__PURE__ */ l(z, { ...c });
-		default: return /* @__PURE__ */ l(P, { ...c });
+		case D.RESET_PASSWORD_OTP: return /* @__PURE__ */ l(L, { ...d });
+		case D.FORGOT_PASSWORD: return /* @__PURE__ */ l(R, { ...d });
+		case D.RESET_PASSWORD: return /* @__PURE__ */ l(z, { ...d });
+		default: return /* @__PURE__ */ l(P, { ...d });
 	}
 }
 //#endregion
 //#region src/ui/screens/ChangePassword.jsx
 function V({ onSuccess: e, onCancel: t }) {
-	let { changePassword: r, isLoading: a, error: c } = n(), [f, p] = s({
+	let { changePassword: r, isLoading: a, error: c, clearError: f } = n(), [p, m] = s({
 		current: "",
 		password: "",
 		confirm: ""
-	}), [m, h] = s({}), [g, _] = s(!1), v = o(null);
-	i(() => () => clearTimeout(v.current), []);
-	function y() {
+	}), [h, g] = s({}), [_, v] = s(!1), y = o(null);
+	i(() => () => clearTimeout(y.current), []);
+	function b() {
 		let e = {};
-		f.current || (e.current = "Current password is required");
-		let t = M(f.password, { label: "New password" });
-		t ? e.password = t : f.password === f.current && (e.password = "New password must differ from the current one");
-		let n = N(f.password, f.confirm);
+		p.current || (e.current = "Current password is required");
+		let t = M(p.password, { label: "New password" });
+		t ? e.password = t : p.password === p.current && (e.password = "New password must differ from the current one");
+		let n = N(p.password, p.confirm);
 		return n && (e.confirm = n), e;
 	}
-	async function b(t) {
+	async function S(t) {
 		t.preventDefault();
-		let n = y();
+		let n = b();
 		if (Object.keys(n).length) {
-			h(n);
+			g(n);
 			return;
 		}
-		h({}), (await r({
-			currentPassword: f.current,
-			newPassword: f.password
-		})).error || (_(!0), v.current = setTimeout(() => e?.(), 1500));
+		g({}), (await r({
+			currentPassword: p.current,
+			newPassword: p.password
+		})).error || (v(!0), y.current = setTimeout(() => e?.(), 1500));
 	}
-	let S = (e) => (t) => p((n) => ({
-		...n,
-		[e]: t.target.value
-	}));
-	return g ? /* @__PURE__ */ l(d, {
+	let C = (e) => (t) => {
+		c && f(), g((t) => t[e] ? {
+			...t,
+			[e]: ""
+		} : t), m((n) => ({
+			...n,
+			[e]: t.target.value
+		}));
+	};
+	return _ ? /* @__PURE__ */ l(d, {
 		title: "Password updated",
 		subtitle: "Your password has been changed",
 		children: /* @__PURE__ */ u("div", {
@@ -918,33 +945,33 @@ function V({ onSuccess: e, onCancel: t }) {
 			children: "Cancel"
 		}),
 		children: /* @__PURE__ */ u("form", {
-			onSubmit: b,
+			onSubmit: S,
 			noValidate: !0,
 			children: [
 				/* @__PURE__ */ l(x, {
 					label: "Current password",
 					placeholder: "Enter your current password",
-					value: f.current,
-					onChange: S("current"),
-					error: m.current,
+					value: p.current,
+					onChange: C("current"),
+					error: h.current,
 					autoComplete: "current-password"
 				}),
 				/* @__PURE__ */ l(x, {
 					label: "New password",
 					placeholder: "Enter a new password",
 					hint: "At least 8 characters",
-					value: f.password,
-					onChange: S("password"),
-					error: m.password,
+					value: p.password,
+					onChange: C("password"),
+					error: h.password,
 					autoComplete: "new-password",
 					showStrength: !0
 				}),
 				/* @__PURE__ */ l(x, {
 					label: "Confirm new password",
 					placeholder: "Re-enter your new password",
-					value: f.confirm,
-					onChange: S("confirm"),
-					error: m.confirm,
+					value: p.confirm,
+					onChange: C("confirm"),
+					error: h.confirm,
 					autoComplete: "new-password"
 				}),
 				/* @__PURE__ */ l(E, {
@@ -963,15 +990,15 @@ function V({ onSuccess: e, onCancel: t }) {
 //#endregion
 //#region src/ui/screens/DeleteAccount.jsx
 function H({ onDeleted: e, onCancel: t }) {
-	let { deleteAccount: r, isLoading: i, error: a, user: o } = n(), [c, f] = s(""), [p, m] = s(!1), [h, g] = s("");
-	async function _(t) {
-		if (t.preventDefault(), !c) {
-			g("Enter your password to confirm");
+	let { deleteAccount: r, isLoading: i, error: a, clearError: o, user: c } = n(), [f, p] = s(""), [m, h] = s(!1), [g, _] = s("");
+	async function v(t) {
+		if (t.preventDefault(), !f) {
+			_("Enter your password to confirm");
 			return;
 		}
-		g(""), (await r({ password: c })).error || e?.();
+		_(""), (await r({ password: f })).error || e?.();
 	}
-	let v = o?.email || o?.phone || "your account";
+	let y = c?.email || c?.phone || "your account";
 	return /* @__PURE__ */ u(d, {
 		title: "Delete account",
 		subtitle: "This is permanent and cannot be undone",
@@ -989,7 +1016,7 @@ function H({ onDeleted: e, onCancel: t }) {
 				}),
 				/* @__PURE__ */ l("p", {
 					className: "mt-0.5 text-sm text-ac-danger/90 break-all",
-					children: v
+					children: y
 				}),
 				/* @__PURE__ */ l("p", {
 					className: "mt-2 text-xs text-ac-danger/80",
@@ -997,15 +1024,15 @@ function H({ onDeleted: e, onCancel: t }) {
 				})
 			]
 		}), /* @__PURE__ */ u("form", {
-			onSubmit: _,
+			onSubmit: v,
 			noValidate: !0,
 			children: [
 				/* @__PURE__ */ u("label", {
 					className: "flex items-start gap-2.5 mb-4 cursor-pointer select-none",
 					children: [/* @__PURE__ */ l("input", {
 						type: "checkbox",
-						checked: p,
-						onChange: (e) => m(e.target.checked),
+						checked: m,
+						onChange: (e) => h(e.target.checked),
 						className: "mt-0.5 h-4 w-4 shrink-0 accent-[rgb(var(--ac-danger))] cursor-pointer"
 					}), /* @__PURE__ */ l("span", {
 						className: "text-sm text-ac-muted",
@@ -1015,11 +1042,13 @@ function H({ onDeleted: e, onCancel: t }) {
 				/* @__PURE__ */ l(x, {
 					label: "Confirm your password",
 					placeholder: "Enter your password",
-					value: c,
-					onChange: (e) => f(e.target.value),
-					error: h,
+					value: f,
+					onChange: (e) => {
+						a && o(), g && _(""), p(e.target.value);
+					},
+					error: g,
 					autoComplete: "current-password",
-					disabled: !p
+					disabled: !m
 				}),
 				/* @__PURE__ */ l(E, {
 					tone: "error",
@@ -1030,7 +1059,7 @@ function H({ onDeleted: e, onCancel: t }) {
 					text: "Delete my account",
 					variant: "danger",
 					loading: i,
-					disabled: !p || !c
+					disabled: !m || !f
 				})
 			]
 		})]
