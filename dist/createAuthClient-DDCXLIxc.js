@@ -360,7 +360,8 @@ function T(e, { endpoints: t } = {}) {
 //#region src/core/createAuthClient.js
 function E(e = {}) {
 	let { baseURL: t, storage: n, storageKeys: r, endpoints: i, headers: a, expirySkewSeconds: o = 30, crossTab: c = !0, onForceLogout: l, onAuthStateChange: u } = e;
-	if (!t) throw Error("createAuthClient requires a baseURL — e.g. createAuthClient({ baseURL: \"https://api.example.com/api\" }). Without it every request would go to the current origin.");
+	if (!t) throw Error("No API base URL. Set VITE_API_BASE_URL in .env and restart the dev server — Vite only reads .env at startup. Or pass it directly: createAuthClient({ baseURL: \"https://api.example.com/v1\" }).");
+	if (t.includes("REPLACE-ME")) throw Error("VITE_API_BASE_URL is still the placeholder. Set it to your authentication API in .env and restart the dev server.");
 	let d = _({
 		storage: n,
 		keys: r
