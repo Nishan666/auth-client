@@ -357,10 +357,10 @@ function P({ setFlow: e, flow: r, onAuthenticated: i }) {
 		}));
 	};
 	function O(e) {
-		f && p(), g(e), v((e) => ({
-			...e,
-			identifier: ""
-		})), b({});
+		f && p(), g(e), v({
+			identifier: "",
+			password: ""
+		}), b({});
 	}
 	return /* @__PURE__ */ l(d, {
 		title: "Sign in",
@@ -472,7 +472,9 @@ function F({ setFlow: r }) {
 	function O(e) {
 		o && f(), g(e), v((e) => ({
 			...e,
-			identifier: ""
+			identifier: "",
+			password: "",
+			confirm: ""
 		})), b({});
 	}
 	return /* @__PURE__ */ l(d, {
