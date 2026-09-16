@@ -101,17 +101,38 @@ install:
 <details>
 <summary>How it manages to ask from inside <code>npm install</code></summary>
 
-npm runs lifecycle scripts with piped stdio: `process.stdin` is not a terminal
-and stdout is hidden unless you pass `--foreground-scripts`. So the hook opens
-`/dev/tty` — the controlling terminal, still there regardless — and runs the
-prompt in a **child process** with those file descriptors as its stdio.
+Two problems have to be solved, and the second one is the interesting one.
 
-The child part matters. Reading `/dev/tty` through a stream in the hook's own
-process does not work: readline gets no terminal control (`isTTY` undefined, no
-raw mode) and silently never receives the keystrokes, which then go to npm
-instead. Handing the fds to a child makes its `process.stdin` a genuine TTY, so
-readline behaves exactly as it does in any normal CLI. It also blocks npm's
-event loop, which stops the progress bar redrawing over the question.
+**Reaching the terminal.** npm runs lifecycle scripts with piped stdio:
+`process.stdin` is not a terminal and stdout is hidden unless you pass
+`--foreground-scripts`. So the hook opens `/dev/tty` — the controlling
+terminal, still there regardless — and runs the prompt in a *child process*
+with those file descriptors as its stdio. The child part matters: reading
+`/dev/tty` through a stream in the hook's own process does not work, because
+readline gets no terminal control (`isTTY` undefined, no raw mode) and silently
+never receives the keystrokes, which go to npm instead.
+
+**Surviving npm's progress bar.** While a lifecycle script runs, npm keeps
+repainting its progress bar onto the current line — measured at **320 redraws
+in 8 seconds**, roughly 40/sec — each one a `\r`, the bar, then
+clear-to-end-of-line. Anything sharing that line is erased 40 times a second,
+including a prompt and every character typed into it. `spawnSync` does not
+block it and neither does `--foreground-scripts`.
+
+So the question is printed, and then the cursor is left on the *next* line. npm
+only ever writes at column 0 of the cursor's line and never moves vertically,
+so its bar is confined to that one throwaway line while the question sits
+untouched above it. The answer is read as a single raw keypress, which needs no
+echo — so nothing of ours is ever on the line npm owns. Afterwards the cursor
+steps back up and rewrites the question with the answer:
+
+```
+  Append the auth block to your existing .env? (Y/n)
+  Append the auth block to your existing .env? yes
+```
+
+A side effect worth knowing: because it is a single keypress, `y` and `n` act
+immediately and Enter takes the default. There is nothing to backspace.
 
 </details>
 
@@ -485,12 +506,16 @@ a Docker build, output piped to a file — or `CI` / `AUTH_CLIENT_NO_PROMPT` is
 set, or install scripts are disabled. Check `src/auth/NEXT-STEPS.txt`, then run
 `npx auth-client setup`.
 
-**The install asked, but my keystrokes did nothing.** That was a real bug in
-0.2.0's first attempt, where the prompt ran in the hook's own process and npm
-received the keys instead. It now runs in a child process with the terminal's
-file descriptors as its stdio. If you still see it, run with
-`AUTH_CLIENT_NO_PROMPT=1` and use `npx auth-client setup` — and please report
-the terminal and npm version.
+**The install asked, but the question was unreadable or my keys did nothing.**
+Two separate bugs during 0.2.0's development, both fixed: the prompt ran in the
+hook's own process (so npm got the keystrokes), and it shared a line with npm's
+progress bar (so it was repainted over 40 times a second). If you still see
+either, set `AUTH_CLIENT_NO_PROMPT=1` and use `npx auth-client setup` — and
+please report your terminal and npm version.
+
+**The question expects a single keypress.** `y` or `n` act immediately, Enter
+takes the default shown in `(Y/n)`. This is deliberate — see *How it manages to
+ask from inside npm install* — so there is no line to edit and no Enter needed.
 
 **Re-installing does not resume.** npm only runs install hooks when it actually
 installs something; a second `npm install github:Nishan666/auth-client` prints
@@ -719,13 +744,14 @@ Publishing would need `prepublishOnly` (lint + build) added back, and the
   install.
 - **The install asks, in the same flow.** `npm install` scaffolds `src/auth/`
   and then prompts about `.env` and app wiring on the controlling terminal —
-  no second command. npm pipes a lifecycle script's stdio, so the questions run
-  in a child process with `/dev/tty` as its stdio; that is what makes the
-  child's `process.stdin` a real TTY, and it also blocks npm's progress bar
-  from drawing over the prompt. It cannot hang: no terminal or `CI=1` skips
-  the questions, an unanswered one times out after 45s and stops the asking,
-  and a hard 120s backstop kills the prompt regardless. Nothing is changed
-  without a yes.
+  no second command. Two things make that work: the prompt runs in a child
+  process with `/dev/tty` as its stdio, so the child's `process.stdin` is a
+  real TTY; and the question is printed with the cursor parked on the next
+  line, with the answer read as an unechoed keypress, so npm's progress bar —
+  which repaints the current line ~40 times a second — has a line of its own
+  to scribble on. It cannot hang: no terminal or `CI=1` skips the questions, an
+  unanswered one times out after 45s and stops the asking, and a 120s backstop
+  kills the prompt regardless. Nothing is changed without a yes.
 - **A closing summary.** `setup` ends with what changed, what to do next, and
   how to undo it — including which `.bak` files are waiting.
 - **A fully ejected `src/auth/`.** The screens' primitives

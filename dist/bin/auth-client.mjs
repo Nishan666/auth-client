@@ -20,7 +20,6 @@
  * changed, so `setup` is the way back in.
  */
 
-import { createInterface } from 'node:readline/promises'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
@@ -42,71 +41,84 @@ const ok = (s) => console.log(`  ${c.green('✓')} ${s}`)
 const skip = (s) => console.log(`  ${c.yellow('·')} ${s}`)
 const cmd = (s) => c.cyan(s)
 
-/**
- * One readline for the whole run, created on first use.
- *
- * Deliberately not one per question: closing an interface discards whatever it
- * has already buffered, so a second question would lose input the user had
- * typed ahead — and answers piped in from a script would vanish entirely.
- */
-let readline = null
-const prompt = () => (readline ??= createInterface({ input: process.stdin, output: process.stdout }))
-function closePrompt() {
-  readline?.close()
-  readline = null
-}
-
 /** How long to wait for a keystroke before giving up and leaving it pending. */
 const ANSWER_TIMEOUT_MS = 45_000
 let abandoned = false
 
 /**
- * Asks a yes/no question.
+ * Asks a yes/no question with a single keypress, and no echo.
+ *
+ * The no-echo part is not a style choice. Running inside `npm install`, npm
+ * redraws its progress bar onto the current line about 40 times a second —
+ * measured at 320 redraws over 8 seconds — as `\r`, the bar, then clear-to-
+ * end-of-line. Anything sharing that line is wiped, including a readline
+ * prompt and every character the user types into it. That is why the earlier
+ * readline version looked broken.
+ *
+ * So: print the question, then move the cursor to the NEXT line and leave it
+ * there. npm only ever writes at the cursor's column 0 and never moves
+ * vertically, so its bar is confined to that one throwaway line while the
+ * question sits untouched above it. Reading a raw keypress needs no echo, so
+ * nothing of ours is ever on the line npm owns. Afterwards we step back up and
+ * rewrite the question with the answer.
  *
  * @returns {Promise<boolean|null>} `null` means *unanswered* — no terminal,
- * Ctrl+C, or nobody typed anything. Deliberately not the same as `false`: an
- * unanswered step stays pending so the next run resumes at it, whereas a "no"
- * is remembered and not asked again.
+ * Ctrl+C, or nobody typed. Deliberately not the same as `false`: an unanswered
+ * step stays pending so the next run resumes at it, whereas a "no" is
+ * remembered and not asked again.
  */
 async function confirm(question, { def = true } = {}) {
   if (has('--yes') || has('-y')) return true
-  if (!process.stdin.isTTY) {
+
+  const { stdin, stdout } = process
+  if (!stdin.isTTY || !stdout.isTTY) {
     console.log(`  ${c.yellow('·')} not a terminal — skipping "${question}"`)
     return null
   }
-  // Once a question has gone unanswered, stop asking: nobody is watching, and
-  // this may be holding up an `npm install`.
+  // Once a question has gone unanswered nobody is watching, and this may be
+  // holding up an install. Stop asking.
   if (abandoned) return null
 
-  const ask = prompt().question(`  ${question} ${c.dim(def ? '(Y/n)' : '(y/N)')} `)
-  let timer
+  const hint = c.dim(def ? '(Y/n)' : '(y/N)')
+  stdout.write(`\n  ${question} ${hint}\n`)
 
-  try {
-    const answer = await Promise.race([
-      ask,
-      new Promise((resolve) => {
-        timer = setTimeout(() => resolve(Symbol.for('timeout')), ANSWER_TIMEOUT_MS)
-      }),
-    ])
-
-    if (answer === Symbol.for('timeout')) {
-      abandoned = true
-      console.log(c.dim(`\n  no answer in ${ANSWER_TIMEOUT_MS / 1000}s — leaving this for later, nothing was changed`))
-      return null
+  const key = await new Promise((resolve) => {
+    let settled = false
+    const finish = (value) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      stdin.off('data', onData)
+      stdin.setRawMode(false)
+      stdin.pause()
+      resolve(value)
     }
+    const onData = (chunk) => finish(chunk.toString('utf8'))
+    const timer = setTimeout(() => finish(null), ANSWER_TIMEOUT_MS)
 
-    const text = String(answer).trim().toLowerCase()
-    if (!text) return def
-    return text === 'y' || text === 'yes'
-  } catch {
-    // Ctrl+C / Ctrl+D closes stdin mid-question. Bail out cleanly instead of
-    // crashing with a Node stack trace, and leave the step unanswered.
+    stdin.setRawMode(true)
+    stdin.resume()
+    stdin.on('data', onData)
+  })
+
+  // Reclaim the question's line from whatever npm has drawn since.
+  const restate = (answer) => stdout.write(`\x1b[1A\r\x1b[2K  ${question} ${answer}\n\r\x1b[2K`)
+
+  if (key === null) {
     abandoned = true
-    console.log(`\n  ${c.yellow('·')} cancelled`)
+    restate(c.yellow(`no answer in ${ANSWER_TIMEOUT_MS / 1000}s — left for later`))
     return null
-  } finally {
-    clearTimeout(timer)
   }
+  // Ctrl+C, Ctrl+D, Esc
+  if (key === '\x03' || key === '\x04' || key === '\x1b') {
+    abandoned = true
+    restate(c.yellow('cancelled'))
+    return null
+  }
+
+  const yes = /^\r|^\n/.test(key) ? def : /^y/i.test(key)
+  restate(yes ? c.cyan('yes') : c.cyan('no'))
+  return yes
 }
 
 function header() {
@@ -141,13 +153,16 @@ function stepEnv() {
 }
 
 // ── step 3 · app wiring ────────────────────────────────────────────────────
-function stepWire() {
+function stepWire({ quiet = false } = {}) {
   const { written, backedUp } = wireApp({ project: PROJECT })
   backedUp.forEach((f) => skip(`backed up ${f}`))
   written.forEach((f) => ok(`wired ${f}`))
-  console.log(c.dim(`    undo with ${cmd('npx auth-client undo')}`))
-  if (backedUp.length) {
-    console.log(c.dim('    the .bak files are yours to delete once you are happy — nothing reads them but `undo`'))
+  // `setup` closes with a summary that covers undo; saying it twice is noise.
+  if (!quiet) {
+    console.log(c.dim(`    undo with ${cmd('npx auth-client undo')}`))
+    if (backedUp.length) {
+      console.log(c.dim('    the .bak files are yours to delete once you are happy'))
+    }
   }
   return { written, backedUp }
 }
@@ -209,16 +224,20 @@ function summary(report, { fromInstall = false } = {}) {
     lines.push(`  2  set ${c.cyan(ENV_KEY)} in .env, then ${c.cyan('npm run dev')}`)
   }
 
-  if (report.backups.length || report.done.length) {
-    lines.push('')
-    lines.push(c.bold('Undo'))
-    if (report.backups.length) {
-      lines.push(`  ${c.cyan('npx auth-client undo')} ${c.dim('restores main.jsx + App.jsx from .bak')}`)
-      report.backups.forEach((file) => lines.push(`  ${c.dim(`· ${file} — your original, kept until you delete it`)}`))
-    }
-    lines.push(`  ${c.cyan('npx auth-client status')} ${c.dim('what is done and what is left')}`)
-    lines.push(c.dim('  src/auth/ is yours — editing or deleting it breaks nothing upstream'))
+  // Offer undo whenever a backup is sitting there, not just when this run made
+  // one — on a resumed setup the wiring happened earlier but is just as undoable.
+  const backups = ['src/main.jsx.bak', 'src/App.jsx.bak'].filter((f) => existsSync(join(PROJECT, f)))
+
+  lines.push('')
+  lines.push(c.bold('Undo'))
+  if (backups.length) {
+    lines.push(`  ${c.cyan('npx auth-client undo')}   ${c.dim('puts main.jsx + App.jsx back')}`)
+    backups.forEach((file) => lines.push(c.dim(`    · ${file} — your original, kept until you delete it`)))
+  } else {
+    lines.push(`  ${c.cyan('npx auth-client undo')}   ${c.dim('nothing to undo — no .bak files')}`)
   }
+  lines.push(`  ${c.cyan('npx auth-client status')} ${c.dim('what is done and what is left')}`)
+  lines.push(c.dim('  src/auth/ is yours — editing or deleting it breaks nothing upstream'))
 
   console.log('')
   box(
@@ -301,7 +320,7 @@ async function setup() {
     const answer = await confirm('Wire them up now?', { def: false })
 
     if (answer === true) {
-      const { backedUp } = stepWire()
+      const { backedUp } = stepWire({ quiet: true })
       recordStep({ project: PROJECT, step: 'wire', status: 'done' })
       report.done.push(`src/main.jsx ${c.dim('— imports the stylesheet')}`)
       report.done.push(`src/App.jsx ${c.dim('— home page: session panel, account actions')}`)
@@ -317,7 +336,6 @@ async function setup() {
     }
   }
 
-  closePrompt()
   if (clearNote({ project: PROJECT })) report.done.push(`removed NEXT-STEPS.txt ${c.dim('— nothing outstanding')}`)
   summary(report, { fromInstall })
 }
