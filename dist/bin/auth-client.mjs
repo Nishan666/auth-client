@@ -21,6 +21,7 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs'
+import { confirm as ask } from './prompt.mjs'
 import { join } from 'node:path'
 import {
   scaffoldAuth, writeEnv, wireApp, undoWiring, isWired,
@@ -40,86 +41,6 @@ const flagValue = (flag, fallback) => {
 const ok = (s) => console.log(`  ${c.green('✓')} ${s}`)
 const skip = (s) => console.log(`  ${c.yellow('·')} ${s}`)
 const cmd = (s) => c.cyan(s)
-
-/** How long to wait for a keystroke before giving up and leaving it pending. */
-const ANSWER_TIMEOUT_MS = 45_000
-let abandoned = false
-
-/**
- * Asks a yes/no question with a single keypress, and no echo.
- *
- * The no-echo part is not a style choice. Running inside `npm install`, npm
- * redraws its progress bar onto the current line about 40 times a second —
- * measured at 320 redraws over 8 seconds — as `\r`, the bar, then clear-to-
- * end-of-line. Anything sharing that line is wiped, including a readline
- * prompt and every character the user types into it. That is why the earlier
- * readline version looked broken.
- *
- * So: print the question, then move the cursor to the NEXT line and leave it
- * there. npm only ever writes at the cursor's column 0 and never moves
- * vertically, so its bar is confined to that one throwaway line while the
- * question sits untouched above it. Reading a raw keypress needs no echo, so
- * nothing of ours is ever on the line npm owns. Afterwards we step back up and
- * rewrite the question with the answer.
- *
- * @returns {Promise<boolean|null>} `null` means *unanswered* — no terminal,
- * Ctrl+C, or nobody typed. Deliberately not the same as `false`: an unanswered
- * step stays pending so the next run resumes at it, whereas a "no" is
- * remembered and not asked again.
- */
-async function confirm(question, { def = true } = {}) {
-  if (has('--yes') || has('-y')) return true
-
-  const { stdin, stdout } = process
-  if (!stdin.isTTY || !stdout.isTTY) {
-    console.log(`  ${c.yellow('·')} not a terminal — skipping "${question}"`)
-    return null
-  }
-  // Once a question has gone unanswered nobody is watching, and this may be
-  // holding up an install. Stop asking.
-  if (abandoned) return null
-
-  const hint = c.dim(def ? '(Y/n)' : '(y/N)')
-  stdout.write(`\n  ${question} ${hint}\n`)
-
-  const key = await new Promise((resolve) => {
-    let settled = false
-    const finish = (value) => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      stdin.off('data', onData)
-      stdin.setRawMode(false)
-      stdin.pause()
-      resolve(value)
-    }
-    const onData = (chunk) => finish(chunk.toString('utf8'))
-    const timer = setTimeout(() => finish(null), ANSWER_TIMEOUT_MS)
-
-    stdin.setRawMode(true)
-    stdin.resume()
-    stdin.on('data', onData)
-  })
-
-  // Reclaim the question's line from whatever npm has drawn since.
-  const restate = (answer) => stdout.write(`\x1b[1A\r\x1b[2K  ${question} ${answer}\n\r\x1b[2K`)
-
-  if (key === null) {
-    abandoned = true
-    restate(c.yellow(`no answer in ${ANSWER_TIMEOUT_MS / 1000}s — left for later`))
-    return null
-  }
-  // Ctrl+C, Ctrl+D, Esc
-  if (key === '\x03' || key === '\x04' || key === '\x1b') {
-    abandoned = true
-    restate(c.yellow('cancelled'))
-    return null
-  }
-
-  const yes = /^\r|^\n/.test(key) ? def : /^y/i.test(key)
-  restate(yes ? c.cyan('yes') : c.cyan('no'))
-  return yes
-}
 
 function header() {
   console.log(`\n${c.bold(pkg.name)} ${c.dim(`v${pkg.version}`)}`)
@@ -250,6 +171,10 @@ function summary(report, { fromInstall = false } = {}) {
 // ── commands ───────────────────────────────────────────────────────────────
 async function setup() {
   const fromInstall = has('--from-install')
+  // Inside `npm install` the progress bar owns the cursor's line, so the plain
+  // renderer is the only one whose question survives. See bin/prompt.mjs.
+  const confirm = (question, opts) =>
+    ask(question, { ...opts, plain: fromInstall, auto: has('--yes') || has('-y') })
   const report = { done: [], skipped: [], backups: [] }
 
   // Where the last run stopped. `--all` re-offers steps that were declined;

@@ -101,38 +101,44 @@ install:
 <details>
 <summary>How it manages to ask from inside <code>npm install</code></summary>
 
-Two problems have to be solved, and the second one is the interesting one.
+Two problems, and the second one decides the design.
 
 **Reaching the terminal.** npm runs lifecycle scripts with piped stdio:
 `process.stdin` is not a terminal and stdout is hidden unless you pass
 `--foreground-scripts`. So the hook opens `/dev/tty` — the controlling
 terminal, still there regardless — and runs the prompt in a *child process*
 with those file descriptors as its stdio. The child part matters: reading
-`/dev/tty` through a stream in the hook's own process does not work, because
-readline gets no terminal control (`isTTY` undefined, no raw mode) and silently
-never receives the keystrokes, which go to npm instead.
+`/dev/tty` through a stream in the hook's own process gives readline no
+terminal control (`isTTY` undefined, no raw mode) and it silently never
+receives the keystrokes, which go to npm instead.
 
-**Surviving npm's progress bar.** While a lifecycle script runs, npm keeps
-repainting its progress bar onto the current line — measured at **320 redraws
-in 8 seconds**, roughly 40/sec — each one a `\r`, the bar, then
-clear-to-end-of-line. Anything sharing that line is erased 40 times a second,
-including a prompt and every character typed into it. `spawnSync` does not
-block it and neither does `--foreground-scripts`.
+**npm owns the cursor's line.** While a lifecycle script runs, npm repaints its
+progress bar onto that line about 40 times a second — measured at **320
+redraws in 8 seconds** — each one a `\r`, the bar, then clear-to-end-of-line.
+Anything on that line is erased. This cannot be switched off from inside a
+hook: `--foreground-scripts` does not stop it (318 redraws), `spawnSync` does
+not block it, and `process.ppid` is the shell npm spawned rather than npm
+itself, so there is nothing to signal.
 
-So the question is printed, and then the cursor is left on the *next* line. npm
-only ever writes at column 0 of the cursor's line and never moves vertically,
-so its bar is confined to that one throwaway line while the question sits
-untouched above it. The answer is read as a single raw keypress, which needs no
-echo — so nothing of ours is ever on the line npm owns. Afterwards the cursor
-steps back up and rewrites the question with the answer:
+That rules out a normal prompt library here. Rendered under npm,
+`@clack/prompts` reads the answer correctly but its message is wiped — only the
+`◆` gutter survives, because the message shares the repainted line.
+
+So there are two renderers, and the environment picks one:
+
+| Where | Renderer |
+|---|---|
+| `npx auth-client setup` | `@clack/prompts` — arrow keys, highlighted default, proper cancel handling |
+| inside `npm install` | a deliberately primitive one: the question is printed and the cursor left on the **next** line, so npm's bar is confined to that throwaway line while the question sits untouched above it. The answer is a single **unechoed** keypress, so nothing of ours is ever on npm's line. Afterwards the cursor steps back up and rewrites the question with the answer. |
 
 ```
   Append the auth block to your existing .env? (Y/n)
   Append the auth block to your existing .env? yes
 ```
 
-A side effect worth knowing: because it is a single keypress, `y` and `n` act
-immediately and Enter takes the default. There is nothing to backspace.
+The progress bar still churns on its own line while you decide — that part is
+npm's, and no package can take it back. A single keypress means `y` and `n` act
+immediately, Enter takes the default, and there is nothing to backspace.
 
 </details>
 
@@ -513,9 +519,15 @@ progress bar (so it was repainted over 40 times a second). If you still see
 either, set `AUTH_CLIENT_NO_PROMPT=1` and use `npx auth-client setup` — and
 please report your terminal and npm version.
 
-**The question expects a single keypress.** `y` or `n` act immediately, Enter
-takes the default shown in `(Y/n)`. This is deliberate — see *How it manages to
-ask from inside npm install* — so there is no line to edit and no Enter needed.
+**The question expects a single keypress during `npm install`.** `y` or `n`
+act immediately, Enter takes the default shown in `(Y/n)`. Deliberate — see
+*How it manages to ask from inside npm install*. `npx auth-client setup` uses a
+normal arrow-key prompt instead.
+
+**npm's progress bar keeps scrolling under the question.** Expected, and not
+fixable from a package: npm repaints that line ~40 times a second for the whole
+install. The question itself is on its own line and stays readable; just press
+`y` or `n`.
 
 **Re-installing does not resume.** npm only runs install hooks when it actually
 installs something; a second `npm install github:Nishan666/auth-client` prints
@@ -749,7 +761,9 @@ Publishing would need `prepublishOnly` (lint + build) added back, and the
   real TTY; and the question is printed with the cursor parked on the next
   line, with the answer read as an unechoed keypress, so npm's progress bar —
   which repaints the current line ~40 times a second — has a line of its own
-  to scribble on. It cannot hang: no terminal or `CI=1` skips the questions, an
+  to scribble on. `npx auth-client setup` uses `@clack/prompts`, which is
+  nicer but gets its message erased under npm, so the renderer is chosen by
+  where it runs. It cannot hang: no terminal or `CI=1` skips the questions, an
   unanswered one times out after 45s and stops the asking, and a 120s backstop
   kills the prompt regardless. Nothing is changed without a yes.
 - **A closing summary.** `setup` ends with what changed, what to do next, and
