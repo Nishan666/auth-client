@@ -1,5 +1,5 @@
-import { x as e, y as t } from "./createAuthClient-DDCXLIxc.js";
-import { t as n } from "./useAuth-BGrvA2nV.js";
+import { x as e, y as t } from "./createAuthClient-dMJQQrDs.js";
+import { t as n } from "./useAuth-Z66WQyqk.js";
 import { useCallback as r, useEffect as i, useId as a, useRef as o, useState as s } from "react";
 import { Fragment as c, jsx as l, jsxs as u } from "react/jsx-runtime";
 //#region src/ui/components/AuthCard/index.jsx

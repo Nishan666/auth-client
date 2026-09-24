@@ -2,7 +2,8 @@ import e from "axios";
 //#region src/core/constants.js
 var t = {
 	TOKENS: "auth_tokens",
-	USER: "auth_user"
+	USER: "auth_user",
+	USERNAME: "auth_username"
 }, n = {
 	SIGN_UP: "/auth/signup",
 	SIGN_IN: "/auth/signin",
@@ -64,8 +65,29 @@ function f({ baseURL: t, tokenStore: r, tokenManager: i, headers: a, endpoints: 
 	}), c;
 }
 //#endregion
+//#region src/core/jwt.js
+function p(e) {
+	let t = e.replace(/-/g, "+").replace(/_/g, "/"), n = t.padEnd(t.length + (4 - t.length % 4) % 4, "="), r = typeof atob == "function" ? atob(n) : globalThis.Buffer.from(n, "base64").toString("binary"), i = Array.from(r, (e) => `%${e.charCodeAt(0).toString(16).padStart(2, "0")}`).join("");
+	return JSON.parse(decodeURIComponent(i));
+}
+function m(e) {
+	try {
+		let [, t] = String(e).split(".");
+		return t ? p(t) : null;
+	} catch {
+		return null;
+	}
+}
+function h(e) {
+	let t = m(e)?.exp;
+	return typeof t == "number" ? t - Math.floor(Date.now() / 1e3) : Infinity;
+}
+function g(e, t = 30) {
+	return !e || h(e) <= t;
+}
+//#endregion
 //#region src/core/storage.js
-function p() {
+function _() {
 	let e = /* @__PURE__ */ new Map();
 	return {
 		getItem: (t) => e.has(t) ? e.get(t) : null,
@@ -73,17 +95,17 @@ function p() {
 		removeItem: (t) => e.delete(t)
 	};
 }
-function m(e) {
+function v(e) {
 	if (e) return e;
 	if (typeof window < "u" && window.localStorage) try {
 		let e = "__auth_client_probe__";
 		return window.localStorage.setItem(e, "1"), window.localStorage.removeItem(e), window.localStorage;
 	} catch {
-		return p();
+		return _();
 	}
-	return p();
+	return _();
 }
-function h(e) {
+function y(e) {
 	if (!e || typeof e != "object") return null;
 	let { id_token: t, idToken: n, access_token: r, accessToken: i, refresh_token: a, refreshToken: o, data: s, ...c } = e.data && typeof e.data == "object" ? {
 		...e.data,
@@ -91,7 +113,7 @@ function h(e) {
 	} : e, l = { ...c }, u = t ?? n, d = r ?? i, f = a ?? o;
 	return u !== void 0 && (l.id_token = u), d !== void 0 && (l.access_token = d), f !== void 0 && (l.refresh_token = f), l;
 }
-function g(e) {
+function b(e) {
 	return e ? {
 		idToken: e.id_token ?? null,
 		accessToken: e.access_token ?? null,
@@ -102,11 +124,11 @@ function g(e) {
 		refreshToken: null
 	};
 }
-function _({ storage: e, keys: n } = {}) {
+function x({ storage: e, keys: n } = {}) {
 	let r = {
 		...t,
 		...n
-	}, i = m(e);
+	}, i = v(e);
 	function a(e) {
 		try {
 			let t = i.getItem(e);
@@ -122,13 +144,15 @@ function _({ storage: e, keys: n } = {}) {
 	}
 	return {
 		saveTokens(e) {
-			let t = h(e);
+			let t = y(e);
 			if (!t) return null;
 			let n = {
 				...a(r.TOKENS) || {},
 				...t
 			};
-			return o(r.TOKENS, n), n;
+			o(r.TOKENS, n);
+			let i = m(n.id_token)?.["cognito:username"];
+			return i && o(r.USERNAME, i), n;
 		},
 		getTokens() {
 			return a(r.TOKENS);
@@ -141,6 +165,9 @@ function _({ storage: e, keys: n } = {}) {
 		},
 		getRefreshToken() {
 			return a(r.TOKENS)?.refresh_token ?? null;
+		},
+		getUsername() {
+			return a(r.USERNAME);
 		},
 		saveUser(e) {
 			o(r.USER, e);
@@ -161,27 +188,6 @@ function _({ storage: e, keys: n } = {}) {
 	};
 }
 //#endregion
-//#region src/core/jwt.js
-function v(e) {
-	let t = e.replace(/-/g, "+").replace(/_/g, "/"), n = t.padEnd(t.length + (4 - t.length % 4) % 4, "="), r = typeof atob == "function" ? atob(n) : globalThis.Buffer.from(n, "base64").toString("binary"), i = Array.from(r, (e) => `%${e.charCodeAt(0).toString(16).padStart(2, "0")}`).join("");
-	return JSON.parse(decodeURIComponent(i));
-}
-function y(e) {
-	try {
-		let [, t] = String(e).split(".");
-		return t ? v(t) : null;
-	} catch {
-		return null;
-	}
-}
-function b(e) {
-	let t = y(e)?.exp;
-	return typeof t == "number" ? t - Math.floor(Date.now() / 1e3) : Infinity;
-}
-function x(e, t = 30) {
-	return !e || b(e) <= t;
-}
-//#endregion
 //#region src/core/tokenManager.js
 function S({ tokenStore: e, requestRefresh: t, broadcaster: n, onRefreshed: r, onForceLogout: i, expirySkewSeconds: a = 30 }) {
 	let o = !1, c = [];
@@ -199,24 +205,25 @@ function S({ tokenStore: e, requestRefresh: t, broadcaster: n, onRefreshed: r, o
 			let i = e.getRefreshToken();
 			if (!i) throw Error("No refresh token available");
 			let c = e.getIdToken();
-			if (!u && c && !x(c, a)) return o = !1, l(null, c), c;
-			let d = await t({
+			if (!u && c && !g(c, a)) return o = !1, l(null, c), c;
+			let d = m(c)?.["cognito:username"] ?? e.getUsername(), f = await t({
 				refreshToken: i,
-				refresh_token: i
+				refresh_token: i,
+				...d ? { username: d } : {}
 			});
-			if (d.error) throw Error(d.message || "Token refresh failed");
-			let f = e.saveTokens(d.data?.tokens ?? d.data), p = f?.id_token;
-			if (!p) throw Error("Refresh response contained no id_token");
-			return n?.post(s.TOKEN_REFRESHED, { tokens: f }), r?.(f), o = !1, l(null, p), p;
+			if (f.error) throw Error(f.message || "Token refresh failed");
+			let p = e.saveTokens(f.data?.tokens ?? f.data), h = p?.id_token;
+			if (!h) throw Error("Refresh response contained no id_token");
+			return n?.post(s.TOKEN_REFRESHED, { tokens: p }), r?.(p), o = !1, l(null, h), h;
 		} catch (t) {
-			throw o = !1, l(t), x(e.getIdToken(), 0) && (n?.post(s.LOGOUT), i?.()), t;
+			throw o = !1, l(t), g(e.getIdToken(), 0) && (n?.post(s.LOGOUT), i?.()), t;
 		}
 	}
 	return {
 		async getValidToken() {
 			let t = e.getIdToken();
 			if (!t) return null;
-			if (!x(t, a)) return t;
+			if (!g(t, a)) return t;
 			try {
 				return await u(!0);
 			} catch {
@@ -226,7 +233,7 @@ function S({ tokenStore: e, requestRefresh: t, broadcaster: n, onRefreshed: r, o
 		refresh: u,
 		expiresIn() {
 			let t = e.getIdToken();
-			return t ? b(t) : 0;
+			return t ? h(t) : 0;
 		},
 		get isRefreshing() {
 			return o;
@@ -362,18 +369,18 @@ function E(e = {}) {
 	let { baseURL: t, storage: n, storageKeys: r, endpoints: i, headers: a, expirySkewSeconds: o = 30, crossTab: c = !0, onForceLogout: l, onAuthStateChange: u } = e;
 	if (!t) throw Error("No API base URL. Set VITE_API_BASE_URL in .env and restart the dev server — Vite only reads .env at startup. Or pass it directly: createAuthClient({ baseURL: \"https://api.example.com/v1\" }).");
 	if (t.includes("REPLACE-ME")) throw Error("VITE_API_BASE_URL is still the placeholder. Set it to your authentication API in .env and restart the dev server.");
-	let d = _({
+	let d = x({
 		storage: n,
 		keys: r
 	}), p = C({ enabled: c }), m = /* @__PURE__ */ new Set();
 	function h() {
-		let { idToken: e, accessToken: t } = g(d.getTokens());
+		let { idToken: e, accessToken: t } = b(d.getTokens());
 		return {
 			idToken: e,
 			accessToken: t
 		};
 	}
-	function v() {
+	function g() {
 		return {
 			isAuthenticated: d.isAuthenticated(),
 			user: d.getUser(),
@@ -382,31 +389,31 @@ function E(e = {}) {
 			error: null
 		};
 	}
-	let y = v();
-	function b() {
-		return y;
+	let _ = g();
+	function v() {
+		return _;
 	}
-	function x(e) {
-		Object.keys(e).some((t) => y[t] !== e[t]) && (y = {
-			...y,
+	function y(e) {
+		Object.keys(e).some((t) => _[t] !== e[t]) && (_ = {
+			..._,
 			...e
-		}, m.forEach((e) => e(y)), u?.(y));
+		}, m.forEach((e) => e(_)), u?.(_));
 	}
 	function w(e) {
 		return m.add(e), () => m.delete(e);
 	}
 	function E() {
-		x({ error: null });
+		y({ error: null });
 	}
 	function D() {
-		x({
+		y({
 			isAuthenticated: d.isAuthenticated(),
 			user: d.getUser(),
 			...h()
 		});
 	}
 	function O() {
-		d.clear(), x({
+		d.clear(), y({
 			isAuthenticated: !1,
 			user: null,
 			idToken: null,
@@ -417,19 +424,19 @@ function E(e = {}) {
 		O(), l?.();
 	}
 	async function A(e) {
-		x({
+		y({
 			isLoading: !0,
 			error: null
 		});
 		try {
 			let t = await e();
-			return x({
+			return y({
 				isLoading: !1,
 				error: t.error ? t.message : null
 			}), t;
 		} catch (e) {
 			let t = e?.message || "Something went wrong";
-			return x({
+			return y({
 				isLoading: !1,
 				error: t
 			}), {
@@ -444,7 +451,7 @@ function E(e = {}) {
 		expirySkewSeconds: o,
 		broadcaster: p,
 		requestRefresh: (e) => j.refreshToken(e),
-		onRefreshed: () => x(h()),
+		onRefreshed: () => y(h()),
 		onForceLogout: k
 	});
 	j = T(f({
@@ -472,7 +479,7 @@ function E(e = {}) {
 	});
 	function N(e) {
 		let { user: t, tokens: n, ...r } = e, i = d.saveTokens(n ?? r);
-		return t && d.saveUser(t), x({
+		return t && d.saveUser(t), y({
 			isAuthenticated: !!i?.id_token,
 			user: t ?? d.getUser(),
 			...h()
@@ -546,7 +553,7 @@ function E(e = {}) {
 		p.destroy(), m.clear();
 	}
 	return {
-		getState: b,
+		getState: v,
 		subscribe: w,
 		clearError: E,
 		signUp: P,
@@ -576,4 +583,4 @@ function E(e = {}) {
 	};
 }
 //#endregion
-export { l as _, S as a, a as b, b as c, g as d, f, c as g, s as h, C as i, _ as l, n as m, T as n, y as o, o as p, w as r, x as s, E as t, h as u, t as v, i as x, r as y };
+export { l as _, S as a, a as b, b as c, h as d, f, c as g, s as h, C as i, m as l, n as m, T as n, x as o, o as p, w as r, y as s, E as t, g as u, t as v, i as x, r as y };
